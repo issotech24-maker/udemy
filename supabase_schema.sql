@@ -105,3 +105,29 @@ CREATE POLICY "cv_logs_owner_read" ON cv_logs
 
 -- Service role (automation bots) can insert/update all tables
 -- Grant these in Supabase Dashboard under service_role key usage
+
+-- ============================================================
+-- CRON LOGS
+-- Tracks automation job execution history (coupons, scholarships)
+-- ============================================================
+CREATE TABLE cron_logs (
+  id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_name       TEXT        NOT NULL,
+  status         TEXT        NOT NULL CHECK (status IN ('success', 'failed', 'running')),
+  items_added    INTEGER     NOT NULL DEFAULT 0,
+  items_updated  INTEGER     NOT NULL DEFAULT 0,
+  error_message  TEXT,
+  duration_ms    INTEGER,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX cron_logs_job_name_idx   ON cron_logs (job_name);
+CREATE INDEX cron_logs_status_idx     ON cron_logs (status);
+CREATE INDEX cron_logs_created_at_idx ON cron_logs (created_at DESC);
+
+ALTER TABLE cron_logs ENABLE ROW LEVEL SECURITY;
+
+-- Only service role can read/write cron logs
+CREATE POLICY "cron_logs_service_only" ON cron_logs
+  USING (false);
+
