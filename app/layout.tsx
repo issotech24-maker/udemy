@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Cairo } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
+import ShellWrapper from "@/components/ShellWrapper";
 
 const cairo = Cairo({
   subsets: ["arabic", "latin"],
@@ -23,9 +22,9 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl" className={cairo.variable}>
       <body className="min-h-screen flex flex-col bg-slate-50 text-slate-900 antialiased font-[family-name:var(--font-cairo)]">
-        <Navbar />
-        <main className="flex-1">{children}</main>
-        <Footer />
+        <ShellWrapper>
+          <main className="flex-1">{children}</main>
+        </ShellWrapper>
       </body>
     </html>
   );
