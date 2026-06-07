@@ -86,15 +86,41 @@ function firstString(...vals: (string | string[] | undefined | null)[]): string 
   return ''
 }
 
+// Safely extracts a date string from any value the API might return.
+// The Open Scholarships API returns deadline as a nested object like
+// { year: 2025, month: 3, day: 15 } rather than a plain string.
+function toDateString(v: unknown): string | null {
+  if (v == null) return null
+  if (typeof v === 'string') { const s = v.trim(); return s || null }
+  if (typeof v === 'object') {
+    const o = v as Record<string, unknown>
+    // { year, month, day } shape
+    if (o.year && o.month && o.day) {
+      const y = String(o.year)
+      const m = String(o.month).padStart(2, '0')
+      const d = String(o.day).padStart(2, '0')
+      return `${y}-${m}-${d}`
+    }
+    // { year, month } shape (day unknown → first of month)
+    if (o.year && o.month) {
+      return `${o.year}-${String(o.month).padStart(2, '0')}-01`
+    }
+    // { date } or { value } wrappers
+    if (o.date  != null) return toDateString(o.date)
+    if (o.value != null) return toDateString(o.value)
+  }
+  return null
+}
+
 function normalizeRaw(raw: RawScholarship): {
   title: string; description: string; country: string
-  deadline: string; requirements: string; benefits: string; link: string
+  deadline: string | null; requirements: string; benefits: string; link: string
 } {
   return {
     title:        firstString(raw.title, raw.scholarship_title, raw.scholarship_name, raw.name),
     description:  firstString(raw.description, raw.desc, raw.about, raw.summary, raw.overview, raw.details),
     country:      firstString(raw.country, raw.host_country, raw.location, raw.countries),
-    deadline:     firstString(raw.deadline, raw.application_deadline, raw.closing_date, raw.due_date),
+    deadline:     toDateString(raw.deadline ?? raw.application_deadline ?? raw.closing_date ?? raw.due_date as unknown),
     requirements: firstString(raw.requirements, raw.eligibility, raw.criteria, raw.who_can_apply),
     benefits:     firstString(raw.benefits, raw.funding, raw.coverage, raw.award, raw.value),
     link:         firstString(raw.link, raw.official_link, raw.apply_url, raw.application_link, raw.url, raw.website),
