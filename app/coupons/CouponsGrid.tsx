@@ -29,6 +29,13 @@ const CATEGORY_COLORS: Record<string, string> = {
   'أعمال':          'bg-slate-100 text-slate-700  border-slate-200',
 }
 
+// Ensures scraped URLs (which may lack protocol) always resolve correctly
+function normalizeUrl(url: string): string {
+  if (!url) return '#'
+  if (/^https?:\/\//i.test(url)) return url
+  return `https://${url}`
+}
+
 // ─── Star rating ──────────────────────────────────────────────────────────────
 
 function StarRating({ rating }: { rating: number }) {
@@ -89,6 +96,8 @@ function CouponModal({ coupon, onClose }: { coupon: Coupon; onClose: () => void 
 
   const catStyle =
     CATEGORY_COLORS[coupon.category ?? ''] ?? 'bg-slate-100 text-slate-600 border-slate-200'
+
+  const safeUrl = normalizeUrl(coupon.url)
 
   return (
     <div
@@ -174,10 +183,10 @@ function CouponModal({ coupon, onClose }: { coupon: Coupon; onClose: () => void 
           )}
         </div>
 
-        {/* CTA */}
+        {/* CTA — opens corrected full URL in a new tab */}
         <div className="px-6 pb-6 pt-2">
           <a
-            href={coupon.url}
+            href={safeUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-2 w-full py-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-sm font-bold rounded-md transition-colors"
@@ -200,7 +209,10 @@ function CouponCard({ coupon, onOpen }: { coupon: Coupon; onOpen: () => void }) 
     CATEGORY_COLORS[coupon.category ?? ''] ?? 'bg-slate-100 text-slate-600 border-slate-200'
 
   return (
-    <article className="bg-white border border-slate-200 rounded-md flex flex-col hover:border-slate-300 hover:shadow-sm transition-all duration-150 overflow-hidden h-full group">
+    <article
+      onClick={onOpen}
+      className="bg-white border border-slate-200 rounded-md flex flex-col hover:border-slate-300 hover:shadow-sm transition-all duration-150 overflow-hidden h-full group cursor-pointer"
+    >
       {/* Top bar */}
       <div className="flex items-center justify-between gap-2 px-5 pt-5 pb-3">
         {coupon.category ? (
@@ -213,11 +225,8 @@ function CouponCard({ coupon, onOpen }: { coupon: Coupon; onOpen: () => void }) 
         {coupon.is_verified && <VerifiedBadge />}
       </div>
 
-      {/* Body — click opens modal */}
-      <button
-        onClick={onOpen}
-        className="flex-1 px-5 pb-4 flex flex-col gap-2 text-start w-full"
-      >
+      {/* Body */}
+      <div className="flex-1 px-5 pb-4 flex flex-col gap-2">
         <h2 className="text-sm font-semibold text-slate-900 leading-snug group-hover:text-slate-700 transition-colors">
           {coupon.title}
         </h2>
@@ -231,10 +240,10 @@ function CouponCard({ coupon, onOpen }: { coupon: Coupon; onOpen: () => void }) 
         <span className="text-[10px] text-slate-400 mt-auto pt-1 underline underline-offset-2 decoration-dotted">
           انقر للتفاصيل
         </span>
-      </button>
+      </div>
 
-      {/* Code + expiry row */}
-      <div className="px-5 pb-3 border-t border-slate-100 pt-3 flex items-center justify-between gap-2">
+      {/* Code + expiry footer */}
+      <div className="px-5 pb-4 border-t border-slate-100 pt-3 flex items-center justify-between gap-2">
         {coupon.coupon_code ? (
           <code className="text-xs font-mono bg-slate-100 text-slate-700 px-2.5 py-1 rounded-sm select-all tracking-wide">
             {coupon.coupon_code}
@@ -245,19 +254,6 @@ function CouponCard({ coupon, onOpen }: { coupon: Coupon; onOpen: () => void }) 
             ينتهي {coupon.expires_at.slice(0, 10)}
           </span>
         )}
-      </div>
-
-      {/* Direct CTA */}
-      <div className="px-5 pb-5">
-        <a
-          href={coupon.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="block text-center w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-md transition-colors"
-        >
-          احصل على الكورس مجاناً
-        </a>
       </div>
     </article>
   )
