@@ -8,11 +8,8 @@ export const runtime = 'nodejs'
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 const RAPIDAPI_KEY  = process.env.RAPIDAPI_KEY  ?? '3fbd9ae512msh7c59afd2abf0e57p189b7djsn22f8ddafbf26'
-const RAPIDAPI_HOST = 'udemy-paid-courses-for-free-api.p.rapidapi.com'
-const RAPIDAPI_BASE = `https://${RAPIDAPI_HOST}/rapidapi/courses/search`
-
-// Keywords to sweep — results are merged and deduplicated before DB insert
-const KEYWORDS = ['python', 'javascript', 'react', 'web development', 'machine learning', 'sql', 'flutter', 'devops']
+const RAPIDAPI_HOST = 'paid-udemy-course-for-free.p.rapidapi.com'
+const RAPIDAPI_BASE = `https://${RAPIDAPI_HOST}/`
 
 // Arabic category mapping — keeps our filter chips consistent
 const CATEGORY_MAP: Record<string, string> = {
@@ -45,30 +42,47 @@ function mapCategory(raw: string | undefined | null): string {
   return 'برمجة'
 }
 
-// ─── RapidAPI types ───────────────────────────────────────────────────────────
+// ─── RapidAPI types (paid-udemy-course-for-free) ──────────────────────────────
+// The API returns a flat array; field names vary slightly across versions.
 
 interface RapidCourse {
-  id?:           number | string
-  title?:        string
-  url?:          string
-  coupon_code?:  string
-  couponCode?:   string
-  rating?:       number | string
-  instructor?:   string
-  category?:     string
-  description?:  string
-  headline?:     string
-  img?:          string
-  price?:        string | number
-  // Some variants nest inside a "course" key
-  course?: {
-    title?: string
-    url?: string
-    rating?: number | string
-    headline?: string
-    instructor?: { display_name?: string }
-    primary_category?: { title?: string }
-  }
+  id?:             number | string
+  // title variants
+  title?:          string
+  name?:           string
+  course_title?:   string
+  // url / coupon link variants
+  url?:            string
+  link?:           string
+  coupon_url?:     string
+  course_url?:     string
+  // coupon code variants
+  coupon_code?:    string
+  couponCode?:     string
+  coupon?:         string
+  // rating variants
+  rating?:         number | string
+  avg_rating?:     number | string
+  course_rating?:  number | string
+  // instructor variants
+  instructor?:     string
+  author?:         string
+  teacher?:        string
+  // category variants
+  category?:       string
+  category_title?: string
+  // description variants
+  description?:    string
+  headline?:       string
+  short_description?: string
+  about?:          string
+  // misc
+  image?:          string
+  img?:            string
+  thumbnail?:      string
+  price?:          string | number
+  students?:       number
+  language?:       string
 }
 
 interface RapidResponse {
@@ -83,58 +97,63 @@ function extractCourses(body: unknown): RapidCourse[] {
   return b.courses ?? b.results ?? b.data ?? []
 }
 
+// Pull ?couponCode=XXX out of a Udemy URL when the field isn't separate
+function couponFromUrl(url: string): string {
+  try {
+    const u = new URL(url)
+    return u.searchParams.get('couponCode') ?? u.searchParams.get('coupon_code') ?? ''
+  } catch {
+    return ''
+  }
+}
+
 function normalizeRapidCourse(raw: RapidCourse): {
   title: string; description: string; url: string
   couponCode: string; rating: number; instructor: string; rawCategory: string
 } {
-  // Some API variants wrap fields inside a nested `course` object
-  const nested = raw.course ?? {}
-  const title   = String(raw.title ?? nested.title ?? '').trim()
-  const desc    = String(raw.description ?? raw.headline ?? nested.headline ?? '').trim()
-  const rawUrl  = String(raw.url ?? nested.url ?? '').trim()
-  const url     = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://www.udemy.com${rawUrl}`
-  const code    = String(raw.coupon_code ?? raw.couponCode ?? `RAPID-${raw.id ?? Date.now()}`).trim().toUpperCase()
-  const rating  = Math.min(5, Math.max(0, Number(raw.rating ?? nested.rating ?? 4.5) || 4.5))
-  const inst    = raw.instructor
-    ?? (nested.instructor as { display_name?: string } | undefined)?.display_name
-    ?? ''
-  const rawCat  = raw.category
-    ?? (nested.primary_category as { title?: string } | undefined)?.title
-    ?? ''
-  return { title, description: desc, url, couponCode: code, rating, instructor: String(inst).trim(), rawCategory: rawCat }
+  const title  = String(raw.title ?? raw.name ?? raw.course_title ?? '').trim()
+  const desc   = String(raw.description ?? raw.headline ?? raw.short_description ?? raw.about ?? '').trim()
+  const rawUrl = String(raw.url ?? raw.link ?? raw.coupon_url ?? raw.course_url ?? '').trim()
+  const url    = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://www.udemy.com${rawUrl}`
+
+  // Prefer explicit coupon_code field; fall back to parsing from URL; then generate a fallback
+  const explicitCode = raw.coupon_code ?? raw.couponCode ?? raw.coupon ?? ''
+  const parsedCode   = explicitCode || couponFromUrl(url)
+  const code         = (parsedCode || `RAPID-${String(raw.id ?? Date.now())}`).trim().toUpperCase()
+
+  const rating   = Math.min(5, Math.max(0, Number(raw.rating ?? raw.avg_rating ?? raw.course_rating ?? 4.5) || 4.5))
+  const inst     = String(raw.instructor ?? raw.author ?? raw.teacher ?? '').trim()
+  const rawCat   = String(raw.category ?? raw.category_title ?? '').trim()
+
+  return { title, description: desc, url, couponCode: code, rating, instructor: inst, rawCategory: rawCat }
 }
 
 // ─── Step 1: fetch raw courses from RapidAPI ──────────────────────────────────
 
 async function fetchRapidAPI(): Promise<RapidCourse[]> {
-  const seen  = new Set<string>()
-  const all: RapidCourse[] = []
+  const res = await fetch(RAPIDAPI_BASE, {
+    headers: {
+      'x-rapidapi-host': RAPIDAPI_HOST,
+      'x-rapidapi-key':  RAPIDAPI_KEY,
+    },
+  })
 
-  for (const query of KEYWORDS) {
-    try {
-      const url = `${RAPIDAPI_BASE}?page=1&page_size=10&query=${encodeURIComponent(query)}`
-      const res = await fetch(url, {
-        headers: {
-          'x-rapidapi-host': RAPIDAPI_HOST,
-          'x-rapidapi-key':  RAPIDAPI_KEY,
-        },
-      })
-      if (!res.ok) {
-        const errBody = await res.text().catch(() => '(no body)')
-        throw new Error(`RapidAPI ${res.status} for "${query}": ${errBody}`)
-      }
-      const body: unknown = await res.json()
-      const courses = extractCourses(body)
-      for (const c of courses) {
-        const { couponCode } = normalizeRapidCourse(c)
-        if (!seen.has(couponCode)) { seen.add(couponCode); all.push(c) }
-      }
-    } catch (err) {
-      throw new Error(`RapidAPI fetch failed for keyword "${query}": ${String(err)}`)
-    }
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '(no body)')
+    throw new Error(`RapidAPI ${res.status}: ${errBody}`)
   }
 
-  return all
+  const body: unknown = await res.json()
+  const courses = extractCourses(body)
+
+  // Deduplicate by coupon code
+  const seen = new Set<string>()
+  return courses.filter((c) => {
+    const { couponCode } = normalizeRapidCourse(c)
+    if (seen.has(couponCode)) return false
+    seen.add(couponCode)
+    return true
+  })
 }
 
 // ─── Step 2: translate + normalise via DeepSeek ───────────────────────────────
