@@ -9,7 +9,7 @@ export const runtime = 'nodejs'
 
 const RAPIDAPI_KEY  = process.env.RAPIDAPI_KEY  ?? '3fbd9ae512msh7c59afd2abf0e57p189b7djsn22f8ddafbf26'
 const RAPIDAPI_HOST = 'paid-udemy-course-for-free.p.rapidapi.com'
-const RAPIDAPI_BASE = `https://${RAPIDAPI_HOST}/`
+const RAPIDAPI_BASE = `https://${RAPIDAPI_HOST}/?page=1&page_size=10`
 
 // Arabic category mapping — keeps our filter chips consistent
 const CATEGORY_MAP: Record<string, string> = {
