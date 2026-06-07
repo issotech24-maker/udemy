@@ -52,3 +52,20 @@ export type CronLogInsert = {
   error_message?: string | null
   duration_ms?: number | null
 }
+
+export type RoadmapStep = {
+  phase: string
+  title: string
+  skills: string[]
+  duration: string
+}
+
+export type RoadmapRecord = {
+  id: string
+  title: string
+  description: string | null
+  category: string | null
+  steps: RoadmapStep[]
+  associated_keywords: string[]
+  created_at: string
+}
