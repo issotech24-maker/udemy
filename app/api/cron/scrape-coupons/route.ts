@@ -97,13 +97,60 @@ function extractCourses(body: unknown): RapidCourse[] {
   return b.courses ?? b.results ?? b.data ?? []
 }
 
-// Pull ?couponCode=XXX out of a Udemy URL when the field isn't separate
-function couponFromUrl(url: string): string {
+// Decodes, repairs, and rebuilds a clean Udemy course URL + extracts coupon code.
+// Handles: broken protocols (https//), percent-encoded params (%3F/%3D), double
+// slashes, redirect wrappers, and missing protocol. Always produces a canonical
+// https://www.udemy.com/course/<slug>/?couponCode=<CODE> URL when possible.
+function buildCleanUdemyUrl(rawUrl: string, explicitCode: string): { url: string; couponCode: string } {
+  // 1. Fix broken protocol variants: "https//...", "http//...", "//..."
+  let fixed = rawUrl
+  if (/^https\/\//i.test(fixed))  fixed = fixed.replace(/^https\/\//i,  'https://')
+  else if (/^http\/\//i.test(fixed)) fixed = fixed.replace(/^http\/\//i, 'http://')
+  else if (/^\/\//.test(fixed))   fixed = `https:${fixed}`
+
+  // 2. Ensure a protocol is present
+  if (!/^https?:\/\//i.test(fixed)) fixed = `https://${fixed}`
+
+  // 3. Decode percent-encoded characters (%3F -> ?, %3D -> =, %2F -> /, etc.)
+  try { fixed = decodeURIComponent(fixed) } catch { /* leave as-is */ }
+
+  // 4. Collapse accidental double slashes (not the protocol ones)
+  fixed = fixed.replace(/([^:])\/\/+/g, '$1/')
+
+  // 5. Extract the course slug from /course/<slug>
+  const slugMatch = fixed.match(/\/course\/([^/?#\s]+)/i)
+
+  // 6. Determine coupon code — explicit field wins, then parse from URL params
+  let code = explicitCode.trim()
+  if (!code) {
+    try {
+      const u = new URL(fixed)
+      code = (
+        u.searchParams.get('couponCode') ??
+        u.searchParams.get('coupon_code') ??
+        u.searchParams.get('coupon') ?? ''
+      )
+    } catch {
+      const m = fixed.match(/[?&]coupon(?:Code|_code)?=([^&\s]+)/i)
+      code = m ? decodeURIComponent(m[1]) : ''
+    }
+  }
+
+  if (slugMatch) {
+    const slug     = slugMatch[1].replace(/\/+$/, '')
+    const baseUrl  = `https://www.udemy.com/course/${slug}/`
+    const finalUrl = code ? `${baseUrl}?couponCode=${encodeURIComponent(code)}` : baseUrl
+    return { url: finalUrl, couponCode: code }
+  }
+
+  // Fallback: slug not found — strip all params and re-attach coupon cleanly
   try {
-    const u = new URL(url)
-    return u.searchParams.get('couponCode') ?? u.searchParams.get('coupon_code') ?? ''
+    const u       = new URL(fixed)
+    const baseUrl = `${u.origin}${u.pathname.replace(/\/+$/, '')}/`
+    const finalUrl = code ? `${baseUrl}?couponCode=${encodeURIComponent(code)}` : baseUrl
+    return { url: finalUrl, couponCode: code }
   } catch {
-    return ''
+    return { url: fixed, couponCode: code }
   }
 }
 
@@ -111,19 +158,17 @@ function normalizeRapidCourse(raw: RapidCourse): {
   title: string; description: string; url: string
   couponCode: string; rating: number; instructor: string; rawCategory: string
 } {
-  const title  = String(raw.title ?? raw.name ?? raw.course_title ?? '').trim()
-  const desc   = String(raw.description ?? raw.headline ?? raw.short_description ?? raw.about ?? '').trim()
-  const rawUrl = String(raw.url ?? raw.link ?? raw.coupon_url ?? raw.course_url ?? '').trim()
-  const url    = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://www.udemy.com${rawUrl}`
+  const title        = String(raw.title ?? raw.name ?? raw.course_title ?? '').trim()
+  const desc         = String(raw.description ?? raw.headline ?? raw.short_description ?? raw.about ?? '').trim()
+  const rawUrl       = String(raw.url ?? raw.link ?? raw.coupon_url ?? raw.course_url ?? '').trim()
+  const explicitCode = String(raw.coupon_code ?? raw.couponCode ?? raw.coupon ?? '').trim()
 
-  // Prefer explicit coupon_code field; fall back to parsing from URL; then generate a fallback
-  const explicitCode = raw.coupon_code ?? raw.couponCode ?? raw.coupon ?? ''
-  const parsedCode   = explicitCode || couponFromUrl(url)
-  const code         = (parsedCode || `RAPID-${String(raw.id ?? Date.now())}`).trim().toUpperCase()
+  const { url, couponCode: parsedCode } = buildCleanUdemyUrl(rawUrl, explicitCode)
+  const code = (parsedCode || `RAPID-${String(raw.id ?? Date.now())}`).trim().toUpperCase()
 
-  const rating   = Math.min(5, Math.max(0, Number(raw.rating ?? raw.avg_rating ?? raw.course_rating ?? 4.5) || 4.5))
-  const inst     = String(raw.instructor ?? raw.author ?? raw.teacher ?? '').trim()
-  const rawCat   = String(raw.category ?? raw.category_title ?? '').trim()
+  const rating = Math.min(5, Math.max(0, Number(raw.rating ?? raw.avg_rating ?? raw.course_rating ?? 4.5) || 4.5))
+  const inst   = String(raw.instructor ?? raw.author ?? raw.teacher ?? '').trim()
+  const rawCat = String(raw.category ?? raw.category_title ?? '').trim()
 
   return { title, description: desc, url, couponCode: code, rating, instructor: inst, rawCategory: rawCat }
 }
@@ -222,12 +267,11 @@ ${inputJson}
   "courses": [
     {
       "coupon_code": "...",
-      "url": "...",
-      "rating": 4.5,
-      "instructor": "...",
       "title": "العنوان بالعربية",
       "description": "الوصف بالعربية",
-      "category": "برمجة"
+      "category": "برمجة",
+      "rating": 4.5,
+      "instructor": "..."
     }
   ]
 }`
@@ -249,19 +293,20 @@ ${inputJson}
   const parsed: unknown = JSON.parse(data.choices[0].message.content)
   if (!isTranslatedPayload(parsed)) throw new Error('Unexpected DeepSeek shape')
 
-  // Build a lookup by coupon_code so order doesn't matter
+  // Build a lookup by coupon_code so order does not matter
   const lookup = new Map(parsed.courses.map((c) => [c.coupon_code, c]))
 
   return batch.map((raw) => {
     const t = lookup.get(raw.couponCode)
     return {
-      title:         t?.title         ?? raw.title,
-      description:   t?.description   ?? (raw.description || null),
-      url:           t?.url           ?? raw.url,
-      category:      t?.category      ?? mapCategory(raw.rawCategory),
-      rating:        t?.rating        ?? raw.rating,
+      title:         t?.title       ?? raw.title,
+      description:   t?.description ?? (raw.description || null),
+      // Always use our own cleaned URL — never trust DeepSeek's copy
+      url:           raw.url,
+      category:      t?.category    ?? mapCategory(raw.rawCategory),
+      rating:        t?.rating      ?? raw.rating,
       current_price: 0,
-      instructor:    t?.instructor    ?? (raw.instructor || null),
+      instructor:    t?.instructor  ?? (raw.instructor || null),
       coupon_code:   raw.couponCode,
       is_verified:   true,
       expires_at:    new Date(Date.now() + 3 * 86_400_000).toISOString(),
