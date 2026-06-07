@@ -15,52 +15,52 @@ const RAPIDAPI_BASE = `https://${RAPIDAPI_HOST}/api/scholarships`
 // Field names are intentionally broad — actual keys revealed by console.log below.
 
 interface RawScholarship {
-  // title variants
-  title?:              string
-  name?:               string
-  scholarship_name?:   string
-  scholarship_title?:  string
-  // description variants
-  description?:        string
-  desc?:               string
-  about?:              string
-  summary?:            string
-  details?:            string
-  overview?:           string
-  // country variants
-  country?:            string
-  location?:           string
-  countries?:          string | string[]
-  host_country?:       string
-  // deadline variants
-  deadline?:           string
-  application_deadline?: string
-  closing_date?:       string
-  due_date?:           string
+  // confirmed primary fields (from console.log payload)
+  name?:    string                                           // → title
+  summary?: string                                          // → description
+  links?:   { apply_url?: string | null; info_url?: string | null; [k: string]: unknown }
+  geo?:     { state?: string | null; country?: string | null; [k: string]: unknown }
+  deadline?: unknown   // arrives as { date: string|null, type: string } — use toDateString
+
+  // fallback title variants
+  title?:             string
+  scholarship_name?:  string
+  scholarship_title?: string
+  // fallback description variants
+  description?:       string
+  desc?:              string
+  about?:             string
+  details?:           string
+  overview?:          string
+  // fallback country variants
+  country?:           string
+  location?:          string
+  countries?:         string | string[]
+  host_country?:      string
+  // fallback deadline variants
+  application_deadline?: unknown
+  closing_date?:      unknown
+  due_date?:          unknown
   // requirements / eligibility variants
-  requirements?:       string
-  eligibility?:        string
-  criteria?:           string
-  who_can_apply?:      string
+  requirements?:      string
+  eligibility?:       string
+  criteria?:          string
+  who_can_apply?:     string
   // benefits / funding variants
-  benefits?:           string
-  funding?:            string
-  coverage?:           string
-  award?:              string
-  value?:              string
-  // link variants
-  link?:               string
-  url?:                string
-  apply_url?:          string
-  application_link?:   string
-  official_link?:      string
-  website?:            string
+  benefits?:          string
+  funding?:           string
+  coverage?:          string
+  award?:             string
+  value?:             string
+  // fallback link variants
+  link?:              string
+  url?:               string
+  apply_url?:         string
+  application_link?:  string
+  official_link?:     string
+  website?:           string
   // misc
-  id?:                 string | number
-  level?:              string
-  field?:              string
-  subject?:            string
-  host_institution?:   string
+  id?:                string | number
 }
 
 interface RawResponse {
@@ -73,7 +73,7 @@ interface RawResponse {
 function extractScholarships(body: unknown): RawScholarship[] {
   if (Array.isArray(body)) return body as RawScholarship[]
   const b = body as RawResponse
-  return b.data ?? b.scholarships ?? b.results ?? b.items ?? []
+  return b.results ?? b.data ?? b.scholarships ?? b.items ?? []
 }
 
 function firstString(...vals: (string | string[] | undefined | null)[]): string {
@@ -116,14 +116,19 @@ function normalizeRaw(raw: RawScholarship): {
   title: string; description: string; country: string
   deadline: string | null; requirements: string; benefits: string; link: string
 } {
+  // Confirmed API shape: name, summary, links.apply_url, geo.state, deadline.date
+  const link = raw.links?.apply_url ?? raw.links?.info_url
+    ?? firstString(raw.link, raw.official_link, raw.apply_url, raw.application_link, raw.url, raw.website)
+  const country = raw.geo?.state ?? raw.geo?.country
+    ?? firstString(raw.country, raw.host_country, raw.location, raw.countries)
   return {
-    title:        firstString(raw.title, raw.scholarship_title, raw.scholarship_name, raw.name),
-    description:  firstString(raw.description, raw.desc, raw.about, raw.summary, raw.overview, raw.details),
-    country:      firstString(raw.country, raw.host_country, raw.location, raw.countries),
-    deadline:     toDateString(raw.deadline ?? raw.application_deadline ?? raw.closing_date ?? raw.due_date as unknown),
+    title:        firstString(raw.name, raw.title, raw.scholarship_title, raw.scholarship_name),
+    description:  firstString(raw.summary, raw.description, raw.desc, raw.about, raw.overview, raw.details),
+    country:      country || '',
+    deadline:     toDateString((raw.deadline ?? raw.application_deadline ?? raw.closing_date ?? raw.due_date) as unknown),
     requirements: firstString(raw.requirements, raw.eligibility, raw.criteria, raw.who_can_apply),
     benefits:     firstString(raw.benefits, raw.funding, raw.coverage, raw.award, raw.value),
-    link:         firstString(raw.link, raw.official_link, raw.apply_url, raw.application_link, raw.url, raw.website),
+    link:         link || '',
   }
 }
 
