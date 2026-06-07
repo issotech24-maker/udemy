@@ -358,6 +358,9 @@ export async function GET(req: NextRequest) {
     (s) => !s.official_link || !existingLinks.has(s.official_link)
   )
 
+  // Purge scholarships with a hard past deadline (null and non-date values are unaffected)
+  await supabase.from('scholarships').delete().lt('deadline', new Date().toISOString())
+
   if (toInsert.length > 0) {
     const { error } = await supabase.from('scholarships').insert(toInsert)
     if (error) {

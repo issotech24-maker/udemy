@@ -480,6 +480,9 @@ export async function GET(req: NextRequest) {
   const toInsert      = coupons.filter((c) => !existingCodes.has(c.coupon_code ?? ''))
   const toUpdate      = coupons.filter((c) =>  existingCodes.has(c.coupon_code ?? ''))
 
+  // Purge coupons whose expiry has passed before inserting fresh ones
+  await supabase.from('coupons').delete().lt('expires_at', new Date().toISOString())
+
   // Insert new
   if (toInsert.length > 0) {
     const { error } = await supabase.from('coupons').insert(toInsert)
