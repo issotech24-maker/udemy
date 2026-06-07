@@ -1,12 +1,3 @@
 {
-  "crons": [
-    {
-      "path": "/api/cron/scrape-coupons",
-      "schedule": "0 0 * * *"
-    },
-    {
-      "path": "/api/cron/scrape-scholarships",
-      "schedule": "0 0 * * *"
-    }
-  ]
+  "cleanUrls": true
 }
