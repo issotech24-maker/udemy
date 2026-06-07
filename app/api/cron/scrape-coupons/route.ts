@@ -76,6 +76,7 @@ interface RapidCourse {
   headline?:       string
   short_description?: string
   about?:          string
+  desc_text?:      string
   // misc
   image?:          string
   img?:            string
@@ -158,10 +159,17 @@ function normalizeRapidCourse(raw: RapidCourse): {
   title: string; description: string; url: string
   couponCode: string; rating: number; instructor: string; rawCategory: string
 } {
-  const title        = String(raw.title ?? raw.name ?? raw.course_title ?? '').trim()
-  const desc         = String(raw.description ?? raw.headline ?? raw.short_description ?? raw.about ?? '').trim()
-  const rawUrl       = String(raw.url ?? raw.link ?? raw.coupon_url ?? raw.course_url ?? '').trim()
-  const explicitCode = String(raw.coupon_code ?? raw.couponCode ?? raw.coupon ?? '').trim()
+  const title = String(raw.title ?? raw.name ?? raw.course_title ?? '').trim()
+  const desc  = String(raw.desc_text ?? raw.description ?? raw.headline ?? raw.short_description ?? raw.about ?? '').trim()
+
+  // `coupon` from this API carries the full ready-made Udemy URL; other fields carry the bare code
+  const couponFieldIsUrl = raw.coupon != null && /^https?:\/\//i.test(String(raw.coupon))
+  const rawUrl       = couponFieldIsUrl
+    ? String(raw.coupon).trim()
+    : String(raw.url ?? raw.link ?? raw.coupon_url ?? raw.course_url ?? '').trim()
+  const explicitCode = couponFieldIsUrl
+    ? ''                                                               // let buildCleanUdemyUrl parse it from the URL
+    : String(raw.coupon_code ?? raw.couponCode ?? raw.coupon ?? '').trim()
 
   const { url, couponCode: parsedCode } = buildCleanUdemyUrl(rawUrl, explicitCode)
   const code = (parsedCode || `RAPID-${String(raw.id ?? Date.now())}`).trim().toUpperCase()
@@ -189,7 +197,10 @@ async function fetchRapidAPI(): Promise<RapidCourse[]> {
   }
 
   const body: unknown = await res.json()
+  // Temporary debug — shows exact field names from this API version
+  console.log("RAW API BODY SHAPE:", JSON.stringify(Array.isArray(body) ? (body as unknown[])[0] : body).slice(0, 2000))
   const courses = extractCourses(body)
+  console.log("RAW API ITEM SAMPLE:", JSON.stringify(courses[0] ?? null))
 
   // Deduplicate by coupon code
   const seen = new Set<string>()
