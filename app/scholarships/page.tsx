@@ -1,269 +1,42 @@
+import { createSupabaseClient } from '@/lib/supabase'
 import ScholarshipsGrid from './ScholarshipsGrid'
 import type { Scholarship } from './ScholarshipsGrid'
+
+// Re-fetch on every request so new cron inserts are always visible
+export const dynamic = 'force-dynamic'
 
 export const metadata = {
   title: 'المنح الدراسية – UdemyRadar',
   description: 'تتبع أحدث المنح الدراسية الدولية مع العد التنازلي لمواعيد التقديم',
 }
 
-const mockScholarships: Scholarship[] = [
-  {
-    id: '1',
-    title: 'منحة فولبرايت للدراسات العليا',
-    subtitle: 'ماجستير / دكتوراه – سنة واحدة أو أكثر',
-    country: 'الولايات المتحدة',
-    flag: '🇺🇸',
-    level: 'ماجستير',
-    field: 'جميع التخصصات',
-    deadline: '2026-07-31',
-    requirements: [
-      'حامل شهادة البكالوريوس بتقدير جيد جداً على الأقل',
-      'إجادة اللغة الإنجليزية (TOEFL 79+ أو IELTS 6.5+)',
-      'خطة دراسية واضحة وخطاب نوايا مقنع',
-      'خبرة مهنية أو بحثية ذات صلة',
-    ],
-    benefit_tags: [
-      'تغطية كاملة للرسوم',
-      'راتب شهري',
-      'تذاكر طيران',
-      'تأمين صحي',
-      'بدل كتب',
-    ],
-    official_link: 'https://foreign.fulbrightonline.org',
-  },
-  {
-    id: '2',
-    title: 'منحة DAAD للدراسات العليا والبحث',
-    subtitle: 'ماجستير / دكتوراه – من 6 أشهر إلى سنتين',
-    country: 'ألمانيا',
-    flag: '🇩🇪',
-    level: 'ماجستير',
-    field: 'العلوم والهندسة والاقتصاد',
-    deadline: '2026-10-15',
-    requirements: [
-      'درجة البكالوريوس أو الماجستير بتقدير مرتفع',
-      'خطة بحثية مفصلة مع جامعة ألمانية مضيفة',
-      'معرفة باللغة الألمانية أو الإنجليزية حسب البرنامج',
-      'لا يزيد عمر المتقدم عن 32 عاماً (للماجستير)',
-    ],
-    benefit_tags: [
-      'راتب شهري 934 يورو',
-      'تأمين صحي',
-      'دورة لغة ألمانية',
-      'رحلات بحثية',
-      'بدل سفر',
-    ],
-    official_link: 'https://www.daad.de/en/study-and-research-in-germany/scholarships',
-  },
-  {
-    id: '3',
-    title: 'منحة شيفنينج البريطانية',
-    subtitle: 'ماجستير – سنة أكاديمية كاملة',
-    country: 'المملكة المتحدة',
-    flag: '🇬🇧',
-    level: 'ماجستير',
-    field: 'جميع التخصصات',
-    deadline: '2026-11-05',
-    requirements: [
-      'سنتان على الأقل من الخبرة العملية بعد التخرج',
-      'مؤهل أكاديمي جيد (ما يعادل 2:1 في البريطانية)',
-      'IELTS 6.5 أو ما يعادله',
-      'التزام بالعودة للوطن لمدة سنتين بعد إتمام الدراسة',
-    ],
-    benefit_tags: [
-      'رسوم دراسية كاملة',
-      'راتب معيشي شهري',
-      'تذاكر طيران',
-      'تأمين صحي',
-      'بدل رحلات',
-      'رحلات شيفنينج',
-    ],
-    official_link: 'https://www.chevening.org',
-  },
-  {
-    id: '4',
-    title: 'منحة الحكومة التركية (YTB)',
-    subtitle: 'بكالوريوس / ماجستير / دكتوراه – مع دورة تركية',
-    country: 'تركيا',
-    flag: '🇹🇷',
-    level: 'بكالوريوس',
-    field: 'جميع التخصصات',
-    deadline: '2027-02-20',
-    requirements: [
-      'معدل GPA لا يقل عن 70% للبكالوريوس أو 75% للدراسات العليا',
-      'ألا يتجاوز عمر المتقدم 21 عاماً (بكالوريوس) أو 30 عاماً (ماجستير)',
-      'إتقان الإنجليزية أو التركية',
-      'السيرة الذاتية وخطاب الدوافع',
-    ],
-    benefit_tags: [
-      'تغطية كاملة للرسوم',
-      'إقامة في الحرم',
-      'تذاكر طيران',
-      'راتب شهري',
-      'تأمين صحي',
-      'دورة لغة تركية',
-    ],
-    official_link: 'https://turkiyeburslari.gov.tr',
-  },
-  {
-    id: '5',
-    title: 'زمالة ألكسندر فون هومبولت',
-    subtitle: 'بحثي ما بعد الدكتوراه – من 6 إلى 24 شهراً',
-    country: 'ألمانيا',
-    flag: '🇩🇪',
-    level: 'بحثي',
-    field: 'جميع التخصصات الأكاديمية',
-    deadline: '2026-09-30',
-    requirements: [
-      'حاصل على الدكتوراه منذ أقل من 12 سنة',
-      'منشورات علمية في دوريات محكّمة',
-      'مشروع بحثي محدد مع مضيف ألماني',
-      'توصيات من أساتذة متخصصين',
-    ],
-    benefit_tags: [
-      'منحة شهرية 2670 يورو',
-      'بدل عائلي',
-      'رحلات بحثية',
-      'دورات لغوية',
-      'تأمين صحي',
-    ],
-    official_link: 'https://www.humboldt-foundation.de',
-  },
-  {
-    id: '6',
-    title: 'منحة الحكومة اليابانية (MEXT)',
-    subtitle: 'بكالوريوس / ماجستير / دكتوراه – حتى 5 سنوات',
-    country: 'اليابان',
-    flag: '🇯🇵',
-    level: 'دكتوراه',
-    field: 'العلوم والتكنولوجيا والهندسة والرياضيات',
-    deadline: '2026-08-31',
-    requirements: [
-      'معدل GPA جيد جداً (85%+ أو ما يعادله)',
-      'تحت سن 35 عاماً للدراسات العليا',
-      'إجادة الإنجليزية أو اليابانية',
-      'القبول من أستاذ مشرف في جامعة يابانية',
-    ],
-    benefit_tags: [
-      'تغطية كاملة',
-      'راتب شهري',
-      'تذاكر طيران',
-      'إعفاء من رسوم القبول',
-      'دورة لغة يابانية',
-    ],
-    official_link: 'https://www.mext.go.jp/en/policy/education/highered/title02/detail02/sdetail02/1373897.htm',
-  },
-  {
-    id: '7',
-    title: 'منحة الحكومة الكورية (GKS / KGSP)',
-    subtitle: 'ماجستير / دكتوراه – 3 سنوات',
-    country: 'كوريا الجنوبية',
-    flag: '🇰🇷',
-    level: 'دكتوراه',
-    field: 'العلوم والتكنولوجيا والإدارة',
-    deadline: '2026-09-15',
-    requirements: [
-      'معدل GPA 2.64 على مقياس 4.0 أو 80% فأكثر',
-      'TOPIK 3+ أو IELTS 5.5+ (حسب لغة البرنامج)',
-      'ألا تكون بلدك أو أنت من حملة الجنسية الكورية',
-      'شهادة صحية من الجهات المعتمدة',
-    ],
-    benefit_tags: [
-      'تغطية كاملة للرسوم',
-      'راتب شهري',
-      'تذاكر طيران',
-      'سكن في الحرم',
-      'تأمين صحي',
-      'دورة لغة كورية',
-    ],
-    official_link: 'https://www.studyinkorea.go.kr/en/sub/gks/allnew_gks2.do',
-  },
-  {
-    id: '8',
-    title: 'منحة أستراليا أواردز',
-    subtitle: 'ماجستير / دكتوراه – مدة البرنامج كاملة',
-    country: 'أستراليا',
-    flag: '🇦🇺',
-    level: 'ماجستير',
-    field: 'التنمية والاقتصاد والصحة والتعليم',
-    deadline: '2026-12-15',
-    requirements: [
-      'مواطن أو مقيم دائم في دولة مؤهلة',
-      'شهادة بكالوريوس بتقدير جيد',
-      'IELTS 6.5+ أو ما يعادله',
-      'خبرة عمل لا تقل عن سنتين',
-    ],
-    benefit_tags: [
-      'تغطية كاملة',
-      'تذاكر طيران',
-      'بدل الاستقرار',
-      'تأمين صحي',
-      'إقامة مدفوعة',
-      'دعم إعادة التأهيل',
-    ],
-    official_link: 'https://www.australiaawards.gov.au',
-  },
-  {
-    id: '9',
-    title: 'منحة الحكومة السويسرية للتميز',
-    subtitle: 'دكتوراه / بحث ما بعد الدكتوراه / تبادل فني',
-    country: 'سويسرا',
-    flag: '🇨🇭',
-    level: 'بحثي',
-    field: 'العلوم والفنون والتصميم',
-    deadline: '2026-12-01',
-    requirements: [
-      'درجة الماجستير أو الدكتوراه بحسب نوع المنحة',
-      'قبول أو تأييد من أستاذ سويسري',
-      'إجادة الإنجليزية الأكاديمية وأي لغة من اللغات الوطنية',
-      'تقديم مشروع بحثي متكامل',
-    ],
-    benefit_tags: [
-      'راتب شهري 1920 فرنك',
-      'رسوم جامعية كاملة',
-      'بدل سكن',
-      'تأمين صحي',
-      'تذاكر طيران',
-    ],
-    official_link: 'https://www.sbfi.admin.ch/sbfi/en/home/education/scholarships-and-grants/swiss-government-excellence-scholarships.html',
-  },
-  {
-    id: '10',
-    title: 'منحة ستيبنديوم هونغاريكوم (المجر)',
-    subtitle: 'بكالوريوس / ماجستير / دكتوراه – مدة البرنامج',
-    country: 'المجر',
-    flag: '🇭🇺',
-    level: 'بكالوريوس',
-    field: 'جميع التخصصات',
-    deadline: '2027-01-15',
-    requirements: [
-      'معدل GPA جيد جداً في المرحلة الدراسية السابقة',
-      'إجادة الإنجليزية B2+ أو الهنغارية',
-      'رسالة دوافع وسيرة ذاتية أكاديمية',
-      'خطابا توصية من أستاذين',
-    ],
-    benefit_tags: [
-      'تغطية كاملة للرسوم',
-      'إقامة في الحرم',
-      'تأمين صحي',
-      'دورات لغوية',
-      'بدل معيشة جزئي',
-    ],
-    official_link: 'https://stipendiumhungaricum.hu',
-  },
-]
+async function fetchScholarships(): Promise<Scholarship[]> {
+  try {
+    const supabase = createSupabaseClient()
+    const { data, error } = await supabase
+      .from('scholarships')
+      .select('id, title, description, country, deadline, requirements, benefits, official_link')
+      .order('deadline', { ascending: true })
+    if (error || !data) return []
+    return data as Scholarship[]
+  } catch {
+    return []
+  }
+}
 
-export default function ScholarshipsPage() {
+export default async function ScholarshipsPage() {
+  const scholarships = await fetchScholarships()
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900 mb-2">المنح الدراسية</h1>
         <p className="text-slate-500 text-sm">
-          {mockScholarships.length} منحة نشطة – مرتبة حسب أقرب موعد للتقديم – مع عداد تنازلي حي
+          {scholarships.length > 0
+            ? `${scholarships.length} منحة نشطة – مرتبة حسب أقرب موعد للتقديم – مع عداد تنازلي حي`
+            : 'يتم تحميل المنح...'}
         </p>
       </div>
-
-      <ScholarshipsGrid scholarships={mockScholarships} />
+      <ScholarshipsGrid scholarships={scholarships} />
     </div>
   )
 }
