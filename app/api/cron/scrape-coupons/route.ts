@@ -119,15 +119,18 @@ async function fetchRapidAPI(): Promise<RapidCourse[]> {
           'x-rapidapi-key':  RAPIDAPI_KEY,
         },
       })
-      if (!res.ok) continue
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => '(no body)')
+        throw new Error(`RapidAPI ${res.status} for "${query}": ${errBody}`)
+      }
       const body: unknown = await res.json()
       const courses = extractCourses(body)
       for (const c of courses) {
         const { couponCode } = normalizeRapidCourse(c)
         if (!seen.has(couponCode)) { seen.add(couponCode); all.push(c) }
       }
-    } catch {
-      // skip failed keyword, continue with others
+    } catch (err) {
+      throw new Error(`RapidAPI fetch failed for keyword "${query}": ${String(err)}`)
     }
   }
 
@@ -340,7 +343,8 @@ export async function GET(req: NextRequest) {
   const configuredSecret = process.env.CRON_SECRET ?? HARDCODED_SECRET
   const bearer      = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '')
   const querySecret = req.nextUrl.searchParams.get('secret') ?? ''
-  const incoming    = bearer || querySecret
+  const queryKey    = req.nextUrl.searchParams.get('key') ?? ''
+  const incoming    = bearer || querySecret || queryKey
   if (incoming !== configuredSecret && incoming !== HARDCODED_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
