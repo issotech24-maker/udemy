@@ -1,45 +1,289 @@
-import { type NextRequest, NextResponse } from 'next/server'
+﻿import { type NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdmin } from '@/lib/supabase'
 import type { CouponInsert, CronLogInsert } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-// ─── Internal types ────────────────────────────────────────────────────────────
+// ─── Config ───────────────────────────────────────────────────────────────────
 
-interface DeepSeekBody {
-  choices: Array<{ message: { content: string } }>
+const RAPIDAPI_KEY  = process.env.RAPIDAPI_KEY  ?? '3fbd9ae512msh7c59afd2abf0e57p189b7djsn22f8ddafbf26'
+const RAPIDAPI_HOST = 'udemy-paid-courses-for-free-api.p.rapidapi.com'
+const RAPIDAPI_BASE = `https://${RAPIDAPI_HOST}/rapidapi/courses/search`
+
+// Keywords to sweep — results are merged and deduplicated before DB insert
+const KEYWORDS = ['python', 'javascript', 'react', 'web development', 'machine learning', 'sql', 'flutter', 'devops']
+
+// Arabic category mapping — keeps our filter chips consistent
+const CATEGORY_MAP: Record<string, string> = {
+  development:       'برمجة',
+  programming:       'برمجة',
+  'web development': 'تطوير الويب',
+  web:               'تطوير الويب',
+  'mobile apps':     'تطوير الويب',
+  'data science':    'ذكاء اصطناعي',
+  'machine learning':'ذكاء اصطناعي',
+  ai:                'ذكاء اصطناعي',
+  'artificial intelligence': 'ذكاء اصطناعي',
+  database:          'قواعد البيانات',
+  sql:               'قواعد البيانات',
+  design:            'تصميم',
+  'ui/ux':           'تصميم',
+  marketing:         'تسويق',
+  business:          'أعمال',
+  entrepreneurship:  'أعمال',
+  devops:            'DevOps',
+  cloud:             'DevOps',
 }
 
-interface AICourse {
-  title: string
+function mapCategory(raw: string | undefined | null): string {
+  if (!raw) return 'برمجة'
+  const key = raw.trim().toLowerCase()
+  for (const [pattern, arabic] of Object.entries(CATEGORY_MAP)) {
+    if (key.includes(pattern)) return arabic
+  }
+  return 'برمجة'
+}
+
+// ─── RapidAPI types ───────────────────────────────────────────────────────────
+
+interface RapidCourse {
+  id?:           number | string
+  title?:        string
+  url?:          string
+  coupon_code?:  string
+  couponCode?:   string
+  rating?:       number | string
+  instructor?:   string
+  category?:     string
+  description?:  string
+  headline?:     string
+  img?:          string
+  price?:        string | number
+  // Some variants nest inside a "course" key
+  course?: {
+    title?: string
+    url?: string
+    rating?: number | string
+    headline?: string
+    instructor?: { display_name?: string }
+    primary_category?: { title?: string }
+  }
+}
+
+interface RapidResponse {
+  courses?: RapidCourse[]
+  results?: RapidCourse[]
+  data?:    RapidCourse[]
+}
+
+function extractCourses(body: unknown): RapidCourse[] {
+  if (Array.isArray(body)) return body as RapidCourse[]
+  const b = body as RapidResponse
+  return b.courses ?? b.results ?? b.data ?? []
+}
+
+function normalizeRapidCourse(raw: RapidCourse): {
+  title: string; description: string; url: string
+  couponCode: string; rating: number; instructor: string; rawCategory: string
+} {
+  // Some API variants wrap fields inside a nested `course` object
+  const nested = raw.course ?? {}
+  const title   = String(raw.title ?? nested.title ?? '').trim()
+  const desc    = String(raw.description ?? raw.headline ?? nested.headline ?? '').trim()
+  const rawUrl  = String(raw.url ?? nested.url ?? '').trim()
+  const url     = /^https?:\/\//i.test(rawUrl) ? rawUrl : `https://www.udemy.com${rawUrl}`
+  const code    = String(raw.coupon_code ?? raw.couponCode ?? `RAPID-${raw.id ?? Date.now()}`).trim().toUpperCase()
+  const rating  = Math.min(5, Math.max(0, Number(raw.rating ?? nested.rating ?? 4.5) || 4.5))
+  const inst    = raw.instructor
+    ?? (nested.instructor as { display_name?: string } | undefined)?.display_name
+    ?? ''
+  const rawCat  = raw.category
+    ?? (nested.primary_category as { title?: string } | undefined)?.title
+    ?? ''
+  return { title, description: desc, url, couponCode: code, rating, instructor: String(inst).trim(), rawCategory: rawCat }
+}
+
+// ─── Step 1: fetch raw courses from RapidAPI ──────────────────────────────────
+
+async function fetchRapidAPI(): Promise<RapidCourse[]> {
+  const seen  = new Set<string>()
+  const all: RapidCourse[] = []
+
+  for (const query of KEYWORDS) {
+    try {
+      const url = `${RAPIDAPI_BASE}?page=1&page_size=10&query=${encodeURIComponent(query)}`
+      const res = await fetch(url, {
+        headers: {
+          'x-rapidapi-host': RAPIDAPI_HOST,
+          'x-rapidapi-key':  RAPIDAPI_KEY,
+        },
+      })
+      if (!res.ok) continue
+      const body: unknown = await res.json()
+      const courses = extractCourses(body)
+      for (const c of courses) {
+        const { couponCode } = normalizeRapidCourse(c)
+        if (!seen.has(couponCode)) { seen.add(couponCode); all.push(c) }
+      }
+    } catch {
+      // skip failed keyword, continue with others
+    }
+  }
+
+  return all
+}
+
+// ─── Step 2: translate + normalise via DeepSeek ───────────────────────────────
+
+interface DeepSeekBody { choices: Array<{ message: { content: string } }> }
+
+interface TranslatedCourse {
+  title:       string
   description: string
-  instructor: string
-  category: string
-  rating: number
+  category:    string
   coupon_code: string
-  expires_in_days: number
-  url: string
+  url:         string
+  rating:      number
+  instructor:  string
 }
 
-interface AICoursePayload {
-  courses: AICourse[]
-}
+interface TranslatedPayload { courses: TranslatedCourse[] }
 
-function isAICoursePayload(val: unknown): val is AICoursePayload {
+function isTranslatedPayload(v: unknown): v is TranslatedPayload {
   return (
-    typeof val === 'object' &&
-    val !== null &&
-    'courses' in val &&
-    Array.isArray((val as AICoursePayload).courses)
+    typeof v === 'object' && v !== null &&
+    'courses' in v && Array.isArray((v as TranslatedPayload).courses)
   )
 }
 
-// ─── AI generator (primary source when no Udemy API creds) ───────────────────
+async function translateBatch(batch: ReturnType<typeof normalizeRapidCourse>[]): Promise<CouponInsert[]> {
+  const apiKey = process.env.DEEPSEEK_API_KEY
+  if (!apiKey) {
+    // No DeepSeek key — use raw English data with category mapping
+    return batch.map((c) => ({
+      title:         c.title,
+      description:   c.description || null,
+      url:           c.url,
+      category:      mapCategory(c.rawCategory),
+      rating:        c.rating,
+      current_price: 0,
+      instructor:    c.instructor || null,
+      coupon_code:   c.couponCode,
+      is_verified:   true,
+      expires_at:    new Date(Date.now() + 3 * 86_400_000).toISOString(),
+      telegram_sent: false,
+    }))
+  }
+
+  const inputJson = JSON.stringify(batch.map((c) => ({
+    coupon_code: c.couponCode,
+    url:         c.url,
+    rating:      c.rating,
+    instructor:  c.instructor,
+    raw_category: c.rawCategory,
+    title_en:    c.title,
+    description_en: c.description,
+  })))
+
+  const prompt = `أنت مساعد متخصص في ترجمة وتصنيف بيانات الدورات التعليمية.
+لديك قائمة دورات من Udemy. لكل دورة:
+1. ترجم العنوان (title_en) إلى عربية احترافية وموجزة
+2. ترجم الوصف (description_en) إلى عربية (جملتان أو ثلاث)، أو اكتب وصفاً مناسباً إن كان فارغاً
+3. اختر الفئة (category) من: برمجة | تطوير الويب | ذكاء اصطناعي | قواعد البيانات | تصميم | تسويق | أعمال | DevOps
+
+البيانات المدخلة (JSON):
+${inputJson}
+
+أعد JSON object فقط بهذا الشكل بدون أي نص إضافي:
+{
+  "courses": [
+    {
+      "coupon_code": "...",
+      "url": "...",
+      "rating": 4.5,
+      "instructor": "...",
+      "title": "العنوان بالعربية",
+      "description": "الوصف بالعربية",
+      "category": "برمجة"
+    }
+  ]
+}`
+
+  const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model:           'deepseek-chat',
+      messages:        [{ role: 'user', content: prompt }],
+      response_format: { type: 'json_object' },
+      temperature:     0.3,
+    }),
+  })
+
+  if (!res.ok) throw new Error(`DeepSeek ${res.status}: ${await res.text()}`)
+
+  const data    = (await res.json()) as DeepSeekBody
+  const parsed: unknown = JSON.parse(data.choices[0].message.content)
+  if (!isTranslatedPayload(parsed)) throw new Error('Unexpected DeepSeek shape')
+
+  // Build a lookup by coupon_code so order doesn't matter
+  const lookup = new Map(parsed.courses.map((c) => [c.coupon_code, c]))
+
+  return batch.map((raw) => {
+    const t = lookup.get(raw.couponCode)
+    return {
+      title:         t?.title         ?? raw.title,
+      description:   t?.description   ?? (raw.description || null),
+      url:           t?.url           ?? raw.url,
+      category:      t?.category      ?? mapCategory(raw.rawCategory),
+      rating:        t?.rating        ?? raw.rating,
+      current_price: 0,
+      instructor:    t?.instructor    ?? (raw.instructor || null),
+      coupon_code:   raw.couponCode,
+      is_verified:   true,
+      expires_at:    new Date(Date.now() + 3 * 86_400_000).toISOString(),
+      telegram_sent: false,
+    }
+  })
+}
+
+// ─── Main fetcher ─────────────────────────────────────────────────────────────
+
+async function fetchCoupons(): Promise<CouponInsert[]> {
+  const rawCourses = await fetchRapidAPI()
+
+  if (rawCourses.length === 0) {
+    // RapidAPI returned nothing — fall back to AI-only generation
+    return generateCouponsAI()
+  }
+
+  const normalised = rawCourses.map(normalizeRapidCourse)
+
+  // Translate in chunks of 10 to stay within DeepSeek token limits
+  const CHUNK = 10
+  const results: CouponInsert[] = []
+  for (let i = 0; i < normalised.length; i += CHUNK) {
+    const chunk = normalised.slice(i, i + CHUNK)
+    const translated = await translateBatch(chunk)
+    results.push(...translated)
+  }
+  return results
+}
+
+// ─── AI fallback (when RapidAPI key missing or returns nothing) ───────────────
 
 async function generateCouponsAI(): Promise<CouponInsert[]> {
   const apiKey = process.env.DEEPSEEK_API_KEY
   if (!apiKey) return []
+
+  interface AICoursePayload { courses: Array<{
+    title: string; description: string; instructor: string; category: string
+    rating: number; coupon_code: string; expires_in_days: number; url: string
+  }> }
+  function isAIPayload(v: unknown): v is AICoursePayload {
+    return typeof v === 'object' && v !== null && 'courses' in v && Array.isArray((v as AICoursePayload).courses)
+  }
 
   const prompt = `أنت مساعد متخصص في بيانات الدورات التعليمية التقنية.
 أنشئ بيانات JSON لـ 8 دورات تقنية مجانية متنوعة للطلاب العرب.
@@ -58,10 +302,7 @@ async function generateCouponsAI(): Promise<CouponInsert[]> {
 
   const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
       model: 'deepseek-chat',
       messages: [{ role: 'user', content: prompt }],
@@ -74,7 +315,7 @@ async function generateCouponsAI(): Promise<CouponInsert[]> {
 
   const data = (await res.json()) as DeepSeekBody
   const parsed: unknown = JSON.parse(data.choices[0].message.content)
-  if (!isAICoursePayload(parsed)) throw new Error('Unexpected DeepSeek response shape')
+  if (!isAIPayload(parsed)) throw new Error('Unexpected DeepSeek shape')
 
   const now = Date.now()
   return parsed.courses.map((c) => ({
@@ -92,54 +333,9 @@ async function generateCouponsAI(): Promise<CouponInsert[]> {
   }))
 }
 
-// ─── Udemy Partner API fetcher ────────────────────────────────────────────────
-
-async function fetchUdemyCoupons(): Promise<CouponInsert[]> {
-  const clientId     = process.env.UDEMY_CLIENT_ID
-  const clientSecret = process.env.UDEMY_CLIENT_SECRET
-
-  // No credentials → fall back to AI generation
-  if (!clientId || !clientSecret) return generateCouponsAI()
-
-  const params = new URLSearchParams({
-    'fields[course]': 'id,title,url,headline,primary_category,avg_rating,price',
-    price:     'price-free',
-    page_size: '15',
-    ordering:  '-created',
-  })
-
-  const creds = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
-  const res   = await fetch(
-    `https://www.udemy.com/api-2.0/courses/?${params.toString()}`,
-    { headers: { Authorization: `Basic ${creds}`, Accept: 'application/json' } },
-  )
-  if (!res.ok) throw new Error(`Udemy API ${res.status}: ${await res.text()}`)
-
-  const body = (await res.json()) as { results: Array<Record<string, unknown>> }
-  const now  = Date.now()
-
-  return (body.results ?? []).map((c) => {
-    const cat = c.primary_category as Record<string, unknown> | null
-    return {
-      title:         String(c.title ?? ''),
-      description:   String(c.headline ?? ''),
-      url:           `https://www.udemy.com${String(c.url ?? '')}`,
-      category:      String(cat?.title ?? 'برمجة'),
-      rating:        Number(c.avg_rating ?? 4.5),
-      current_price: 0,
-      instructor:    null,
-      coupon_code:   `UDEMY-${String(c.id ?? Math.random().toString(36).slice(2))}`,
-      is_verified:   false,
-      expires_at:    new Date(now + 3 * 86_400_000).toISOString(),
-      telegram_sent: false,
-    }
-  })
-}
-
-// ─── Route handler ─────────────────────────────────────────────────────────────
+// ─── Route handler ────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
-  // Auth guard — accepts header, query param, or hardcoded localhost fallback
   const HARDCODED_SECRET = 'my_super_secret_cron_key_4352'
   const configuredSecret = process.env.CRON_SECRET ?? HARDCODED_SECRET
   const bearer      = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '')
@@ -150,8 +346,6 @@ export async function GET(req: NextRequest) {
   }
 
   const started = Date.now()
-
-  // Build log record
   const logEntry: CronLogInsert = {
     job_name:      'scrape-coupons',
     status:        'running',
@@ -159,14 +353,13 @@ export async function GET(req: NextRequest) {
     items_updated: 0,
   }
 
-  // Try Supabase connection
+  // Try Supabase
   let supabase: ReturnType<typeof createSupabaseAdmin> | null = null
   try {
     supabase = createSupabaseAdmin()
   } catch {
-    // Dry-run mode — Supabase not configured
     try {
-      const coupons = await fetchUdemyCoupons()
+      const coupons = await fetchCoupons()
       return NextResponse.json({
         status:        'dry-run',
         note:          'Set NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY to persist.',
@@ -178,10 +371,10 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Fetch coupons
+  // Fetch + translate
   let coupons: CouponInsert[] = []
   try {
-    coupons = await fetchUdemyCoupons()
+    coupons = await fetchCoupons()
   } catch (err) {
     logEntry.status        = 'failed'
     logEntry.error_message = String(err)
@@ -197,7 +390,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ status: 'success', items_added: 0, items_updated: 0 })
   }
 
-  // Deduplicate: find existing coupon_codes
+  // Deduplicate against existing rows
   const codes = coupons.map((c) => c.coupon_code).filter((x): x is string => Boolean(x))
   const { data: existing } = await supabase
     .from('coupons')
@@ -208,7 +401,7 @@ export async function GET(req: NextRequest) {
   const toInsert      = coupons.filter((c) => !existingCodes.has(c.coupon_code ?? ''))
   const toUpdate      = coupons.filter((c) =>  existingCodes.has(c.coupon_code ?? ''))
 
-  // Insert new coupons
+  // Insert new
   if (toInsert.length > 0) {
     const { error } = await supabase.from('coupons').insert(toInsert)
     if (error) {
@@ -220,7 +413,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Re-verify existing (refresh expiry)
+  // Re-verify existing (refresh expiry + mark verified)
   for (const coupon of toUpdate) {
     await supabase
       .from('coupons')
@@ -228,7 +421,6 @@ export async function GET(req: NextRequest) {
       .eq('coupon_code', coupon.coupon_code as string)
   }
 
-  // Write success log
   logEntry.status        = 'success'
   logEntry.items_added   = toInsert.length
   logEntry.items_updated = toUpdate.length
