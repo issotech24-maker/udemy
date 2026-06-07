@@ -1,4 +1,4 @@
-import { createSupabaseClient } from '@/lib/supabase'
+﻿import { createSupabaseAdmin } from '@/lib/supabase'
 import ScholarshipsGrid from './ScholarshipsGrid'
 import type { Scholarship } from './ScholarshipsGrid'
 
@@ -12,7 +12,7 @@ export const metadata = {
 
 async function fetchScholarships(): Promise<Scholarship[]> {
   try {
-    const supabase = createSupabaseClient()
+    const supabase = createSupabaseAdmin()
     const { data, error } = await supabase
       .from('scholarships')
       .select('id, title, description, country, deadline, requirements, benefits, official_link')

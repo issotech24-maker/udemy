@@ -1,4 +1,4 @@
-import { createSupabaseClient } from '@/lib/supabase'
+﻿import { createSupabaseAdmin } from '@/lib/supabase'
 import CouponsGrid from './CouponsGrid'
 import type { Coupon } from './CouponsGrid'
 
@@ -12,7 +12,7 @@ export const metadata = {
 
 async function fetchCoupons(): Promise<Coupon[]> {
   try {
-    const supabase = createSupabaseClient()
+    const supabase = createSupabaseAdmin()
     const { data, error } = await supabase
       .from('coupons')
       .select('id, title, description, url, category, rating, current_price, instructor, coupon_code, is_verified, expires_at')
