@@ -9,7 +9,7 @@ export const runtime = 'nodejs'
 
 const RAPIDAPI_KEY  = process.env.RAPIDAPI_KEY ?? '3fbd9ae512msh7c59afd2abf0e57p189b7djsn22f8ddafbf26'
 const RAPIDAPI_HOST = 'open-scholarships.p.rapidapi.com'
-const RAPIDAPI_BASE = `https://${RAPIDAPI_HOST}/`
+const RAPIDAPI_BASE = `https://${RAPIDAPI_HOST}/api/scholarships`
 
 // ─── Raw API types ────────────────────────────────────────────────────────────
 // Field names are intentionally broad — actual keys revealed by console.log below.
