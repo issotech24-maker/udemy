@@ -29,11 +29,20 @@ const CATEGORY_COLORS: Record<string, string> = {
   'أعمال':          'bg-slate-100 text-slate-700  border-slate-200',
 }
 
-// Ensures scraped URLs (which may lack protocol) always resolve correctly
+// Decodes percent-encoded URLs, collapses accidental double-slashes, ensures protocol
 function normalizeUrl(url: string): string {
   if (!url) return '#'
-  if (/^https?:\/\//i.test(url)) return url
-  return `https://${url}`
+  let decoded = url
+  try { decoded = decodeURIComponent(url) } catch { decoded = url }
+  // collapse double slashes that aren't part of a protocol (https://)
+  decoded = decoded.replace(/([^:])\/\//g, '$1/')
+  if (/^https?:\/\//i.test(decoded)) return decoded
+  return `https://${decoded}`
+}
+
+// Returns true when a string looks like a URL rather than a human-readable value
+function isUrlLike(s: string): boolean {
+  return /^https?:\/\//i.test(s) || /^www\./i.test(s)
 }
 
 // ─── Star rating ──────────────────────────────────────────────────────────────
@@ -98,6 +107,8 @@ function CouponModal({ coupon, onClose }: { coupon: Coupon; onClose: () => void 
     CATEGORY_COLORS[coupon.category ?? ''] ?? 'bg-slate-100 text-slate-600 border-slate-200'
 
   const safeUrl = normalizeUrl(coupon.url)
+  const displayDescription = coupon.description && !isUrlLike(coupon.description) ? coupon.description : null
+  const displayCode = coupon.coupon_code && !isUrlLike(coupon.coupon_code) ? coupon.coupon_code : null
 
   return (
     <div
@@ -141,8 +152,8 @@ function CouponModal({ coupon, onClose }: { coupon: Coupon; onClose: () => void 
 
         {/* Body */}
         <div className="px-6 py-5 space-y-5">
-          {coupon.description && (
-            <p className="text-sm text-slate-600 leading-relaxed">{coupon.description}</p>
+          {displayDescription && (
+            <p className="text-sm text-slate-600 leading-relaxed">{displayDescription}</p>
           )}
 
           <div className="flex flex-wrap gap-5">
@@ -166,11 +177,11 @@ function CouponModal({ coupon, onClose }: { coupon: Coupon; onClose: () => void 
             )}
           </div>
 
-          {coupon.coupon_code && (
+          {displayCode && (
             <div>
               <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">كود الخصم</p>
               <code className="block w-full text-center text-sm font-mono font-bold bg-slate-50 text-slate-800 px-4 py-3 rounded-md select-all tracking-widest border border-slate-200">
-                {coupon.coupon_code}
+                {displayCode}
               </code>
               <p className="text-[10px] text-slate-400 text-center mt-1">انقر لتحديد الكود ثم انسخه</p>
             </div>
@@ -208,6 +219,9 @@ function CouponCard({ coupon, onOpen }: { coupon: Coupon; onOpen: () => void }) 
   const catStyle =
     CATEGORY_COLORS[coupon.category ?? ''] ?? 'bg-slate-100 text-slate-600 border-slate-200'
 
+  const displayDescription = coupon.description && !isUrlLike(coupon.description) ? coupon.description : null
+  const displayCode = coupon.coupon_code && !isUrlLike(coupon.coupon_code) ? coupon.coupon_code : null
+
   return (
     <article
       onClick={onOpen}
@@ -230,8 +244,8 @@ function CouponCard({ coupon, onOpen }: { coupon: Coupon; onOpen: () => void }) 
         <h2 className="text-sm font-semibold text-slate-900 leading-snug group-hover:text-slate-700 transition-colors">
           {coupon.title}
         </h2>
-        {coupon.description && (
-          <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">{coupon.description}</p>
+        {displayDescription && (
+          <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">{displayDescription}</p>
         )}
         {coupon.instructor && (
           <p className="text-xs text-slate-400">{coupon.instructor}</p>
@@ -244,9 +258,9 @@ function CouponCard({ coupon, onOpen }: { coupon: Coupon; onOpen: () => void }) 
 
       {/* Code + expiry footer */}
       <div className="px-5 pb-4 border-t border-slate-100 pt-3 flex items-center justify-between gap-2">
-        {coupon.coupon_code ? (
+        {displayCode ? (
           <code className="text-xs font-mono bg-slate-100 text-slate-700 px-2.5 py-1 rounded-sm select-all tracking-wide">
-            {coupon.coupon_code}
+            {displayCode}
           </code>
         ) : <span />}
         {coupon.expires_at && (
