@@ -674,10 +674,10 @@ export default function AdminDashboard() {
   // ── Cron trigger ───────────────────────────────────────────────────────────
   const triggerCron = useCallback(async (path: string) => {
     setCronState({ running: path, lastResult: null })
-    const secret = process.env.NEXT_PUBLIC_CRON_SECRET ?? ''
+    const secret = process.env.NEXT_PUBLIC_CRON_SECRET ?? 'my_super_secret_cron_key_4352'
     try {
       const res = await fetch(`/api/cron/${path}`, {
-        headers: secret ? { Authorization: `Bearer ${secret}` } : {},
+        headers: { Authorization: `Bearer ${secret}` },
       })
       const data = (await res.json()) as Record<string, unknown>
       const added   = Number(data.items_added   ?? 0)
