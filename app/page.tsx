@@ -78,11 +78,13 @@ async function fetchHomeData() {
       supabase
         .from('coupons')
         .select('id, title, category, rating, instructor, coupon_code, expires_at')
+        .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString())
         .order('created_at', { ascending: false })
         .limit(4),
       supabase
         .from('scholarships')
         .select('id, title, country, deadline, benefits')
+        .or('deadline.is.null,deadline.gt.' + new Date().toISOString())
         .order('deadline', { ascending: true })
         .limit(4),
       supabase

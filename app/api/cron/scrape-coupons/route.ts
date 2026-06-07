@@ -270,6 +270,12 @@ async function translateBatch(batch: ReturnType<typeof normalizeRapidCourse>[]):
 2. ترجم الوصف (description_en) إلى عربية (جملتان أو ثلاث)، أو اكتب وصفاً مناسباً إن كان فارغاً
 3. اختر الفئة (category) من: برمجة | تطوير الويب | ذكاء اصطناعي | قواعد البيانات | تصميم | تسويق | أعمال | DevOps
 
+قواعد صارمة للترجمة — يجب اتباعها بدقة:
+- لا تُترجم أو تُعرّب أسماء المنصات: Fiverr, Upwork, Udemy, Coursera, LinkedIn, YouTube, GitHub, Google, Microsoft, Apple, Amazon, Meta, Shopify, WordPress
+- لا تُترجم أسماء لغات البرمجة والتقنيات: Python, JavaScript, TypeScript, React, Angular, Vue, Node.js, PHP, Java, C++, SQL, NoSQL, Docker, Kubernetes, AWS, Azure, Excel, Photoshop, Canva, ChatGPT, OpenAI
+- الأسماء العلمية والعلامات التجارية تبقى بالإنجليزية داخل الجملة العربية
+- ترجم نصوص الوصف التفسيرية فقط وليس الأسماء الخاصة
+
 البيانات المدخلة (JSON):
 ${inputJson}
 

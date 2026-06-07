@@ -214,6 +214,13 @@ async function translateBatch(
 4. ترجم المزايا (benefits_en) إلى عربية موجزة، أو اتركه فارغاً
 5. اترك country كما هو (اسم الدولة بالإنجليزية)
 
+قواعد صارمة للترجمة — يجب اتباعها بدقة:
+- لا تُترجم أو تُعرّب أسماء المنح والمؤسسات الدولية: Fulbright, DAAD, Chevening, Erasmus, Commonwealth, Rotary, Gates, Rhodes
+- احتفظ بأسماء الجامعات كما هي: Harvard, MIT, Oxford, Cambridge, Stanford, Yale, Princeton
+- لا تُترجم اختصارات الاختبارات: IELTS, TOEFL, GRE, GMAT, SAT
+- أسماء الدول والمدن الأجنبية تُترجم للعربية المعتادة (مثال: Germany → ألمانيا)
+- ترجم النصوص التفسيرية والوصفية فقط وليس الأسماء العلمية
+
 البيانات المدخلة (JSON):
 ${inputJson}
 
