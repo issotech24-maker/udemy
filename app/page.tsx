@@ -114,10 +114,9 @@ export default async function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
           <div className="text-center max-w-3xl mx-auto">
 
-            <div className="inline-flex items-center gap-2 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-full mb-6">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" aria-hidden="true" />
-              منصة مجانية للطلاب العرب
-            </div>
+            <p className="text-sm font-semibold text-slate-600 mb-6 max-w-2xl mx-auto leading-relaxed">
+              منصتك الذكية لتمكين الكفاءات التقنية واقتناص أفضل الفرص التعليمية والمهنية عالمياً.
+            </p>
 
             <h1 className="text-4xl sm:text-5xl font-bold text-slate-900 leading-tight mb-5">
               تعلّم بذكاء، وفّر المال،

@@ -1,8 +1,16 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import {
+  useState,
+  useTransition,
+  useRef,
+  type DragEvent,
+  type ChangeEvent,
+} from 'react'
 import { analyzeCvAction, generateCoverLetterAction } from './actions'
 import type { CvAnalysisResult } from './actions'
+
+// ─── Shared primitives ────────────────────────────────────────────────────────
 
 function Spinner() {
   return (
@@ -21,9 +29,7 @@ function ScoreMeter({ score }: { score: number }) {
       ? 'text-amber-700 bg-amber-50 border-amber-200'
       : 'text-red-700 bg-red-50 border-red-200'
   return (
-    <span
-      className={`inline-flex items-center gap-1 text-sm font-bold px-3 py-1 rounded-md border ${color}`}
-    >
+    <span className={`inline-flex items-center gap-1 text-sm font-bold px-3 py-1 rounded-md border ${color}`}>
       {score}
       <span className="text-xs font-normal opacity-70">/100</span>
     </span>
@@ -32,25 +38,20 @@ function ScoreMeter({ score }: { score: number }) {
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
-
   async function copy() {
     await navigator.clipboard.writeText(text)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
-
   return (
     <button
       onClick={copy}
-      className="text-xs font-medium px-3 py-1.5 border border-slate-200 rounded-md text-slate-600 hover:bg-slate-50 transition-colors"
+      className="text-xs font-medium px-3 py-1.5 border border-gray-200 rounded-md text-slate-600 hover:bg-slate-50 transition-colors"
     >
       {copied ? '✓ تم النسخ' : 'نسخ النص'}
     </button>
   )
 }
-
-const inputClass =
-  'w-full text-sm border border-slate-200 rounded-md px-3 py-2 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-slate-400 transition-colors bg-white disabled:bg-slate-50 disabled:text-slate-400'
 
 function ErrorBanner({ message }: { message: string }) {
   return (
@@ -60,17 +61,70 @@ function ErrorBanner({ message }: { message: string }) {
   )
 }
 
+const inputClass =
+  'w-full text-sm border border-gray-200 rounded-md px-3 py-2 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-slate-400 transition-colors bg-white disabled:bg-slate-50 disabled:text-slate-400'
+
+// ─── CV Analyzer ──────────────────────────────────────────────────────────────
+
+type UploadedFile = { name: string; text: string }
+
 function CvAnalyzerSection() {
-  const [result, setResult] = useState<CvAnalysisResult | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
+  const [result,       setResult]       = useState<CvAnalysisResult | null>(null)
+  const [error,        setError]        = useState<string | null>(null)
+  const [isPending,    startTransition] = useTransition()
+  const [dragOver,     setDragOver]     = useState(false)
+  const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  function readAsText(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload  = () => resolve(reader.result as string)
+      reader.onerror = () => reject(new Error('تعذّر قراءة الملف'))
+      reader.readAsText(file, 'UTF-8')
+    })
+  }
+
+  async function processFile(file: File) {
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+    if (ext !== 'pdf' && ext !== 'docx') {
+      setError('الملفات المقبولة: PDF أو DOCX فقط')
+      return
+    }
+    setError(null)
+    try {
+      const text = await readAsText(file)
+      setUploadedFile({ name: file.name, text })
+    } catch {
+      setUploadedFile({ name: file.name, text: '' })
+    }
+  }
+
+  function handleDrop(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    setDragOver(false)
+    const file = e.dataTransfer.files[0]
+    if (file) processFile(file)
+  }
+
+  function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (file) processFile(file)
+  }
+
+  function clearFile() {
+    setUploadedFile(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    const cvText = (
-      e.currentTarget.elements.namedItem('cvText') as HTMLTextAreaElement
-    ).value.trim()
-    if (!cvText) return
+    const textarea = e.currentTarget.elements.namedItem('cvText') as HTMLTextAreaElement
+    const cvText   = uploadedFile?.text || textarea.value.trim()
+    if (!cvText) {
+      setError('يرجى إدخال نص السيرة الذاتية أو رفع ملف')
+      return
+    }
     setError(null)
     startTransition(async () => {
       try {
@@ -83,8 +137,10 @@ function CvAnalyzerSection() {
   }
 
   return (
-    <section className="bg-white border border-slate-200 rounded-md p-6 space-y-5">
-      <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
+    <section className="bg-white border border-gray-200 rounded-md p-6 space-y-5">
+
+      {/* Header */}
+      <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
         <span className="text-xl" aria-hidden="true">📊</span>
         <div>
           <h2 className="text-base font-semibold text-slate-900">محلّل السيرة الذاتية</h2>
@@ -95,27 +151,99 @@ function CvAnalyzerSection() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+
+        {/* Paste textarea */}
         <div>
-          <label
-            htmlFor="cv-text"
-            className="block text-xs font-medium text-slate-500 mb-1.5"
-          >
-            نص السيرة الذاتية
+          <label htmlFor="cv-text" className="block text-xs font-medium text-slate-500 mb-1.5">
+            الصق نص السيرة الذاتية
           </label>
           <textarea
             id="cv-text"
             name="cvText"
             rows={10}
-            required
-            disabled={isPending}
+            disabled={isPending || !!uploadedFile}
             placeholder="الصق نص سيرتك الذاتية كاملاً هنا (بالعربية أو الإنجليزية)..."
-            className={`${inputClass} resize-none`}
+            className={`${inputClass} resize-none${uploadedFile ? ' opacity-40 cursor-not-allowed' : ''}`}
           />
         </div>
+
+        {/* Divider */}
+        <div className="flex items-center gap-3">
+          <div className="flex-1 h-px bg-gray-200" />
+          <span className="text-xs font-semibold text-slate-400 select-none">أو</span>
+          <div className="flex-1 h-px bg-gray-200" />
+        </div>
+
+        {/* File upload dropzone */}
+        <div>
+          <p className="block text-xs font-medium text-slate-500 mb-1.5">
+            رفع ملف السيرة الذاتية
+          </p>
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="منطقة رفع الملف – اسحب ملفك هنا أو انقر للاختيار"
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            onClick={() => !isPending && fileInputRef.current?.click()}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click() }}
+            className={`cursor-pointer rounded-md border-2 border-dashed transition-colors px-6 py-8 text-center select-none ${
+              dragOver
+                ? 'border-blue-400 bg-blue-50'
+                : uploadedFile
+                ? 'border-emerald-300 bg-emerald-50'
+                : 'border-gray-200 bg-white hover:border-gray-300'
+            }`}
+          >
+            {uploadedFile ? (
+              <div className="flex flex-col items-center gap-2">
+                <svg className="w-6 h-6 text-emerald-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-sm font-semibold text-emerald-700">{uploadedFile.name}</span>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); clearFile() }}
+                  className="text-xs text-slate-400 hover:text-slate-700 underline underline-offset-2 transition-colors"
+                >
+                  إزالة الملف
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2 pointer-events-none">
+                <svg className="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                </svg>
+                <p className="text-sm text-slate-600">
+                  اسحب الملف هنا أو{' '}
+                  <span className="font-semibold text-blue-600">اختر من جهازك</span>
+                </p>
+                <p className="text-xs text-slate-400">PDF, DOCX · حجم أقصى 5 ميغابايت</p>
+              </div>
+            )}
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            onChange={handleFileChange}
+            disabled={isPending}
+            className="sr-only"
+            aria-label="رفع ملف السيرة الذاتية"
+          />
+        </div>
+
+        {/* Privacy note */}
+        <p className="flex items-start gap-2 text-xs text-slate-500 bg-slate-50 border border-gray-200 rounded-md px-4 py-3 leading-relaxed">
+          🔒 نحن نحترم خصوصيتك بالكامل: ملفك يتم تحليله فوراً في الذاكرة ولا يتم تخزينه أو مشاركته مع أي جهة خارجية.
+        </p>
+
+        {/* Submit */}
         <button
           type="submit"
           disabled={isPending}
-          className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white text-sm font-medium rounded-md hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-semibold rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {isPending && <Spinner />}
           {isPending ? 'جاري التحليل...' : 'حلّل السيرة الذاتية'}
@@ -125,7 +253,7 @@ function CvAnalyzerSection() {
       {error && <ErrorBanner message={error} />}
 
       {result && !isPending && (
-        <div className="space-y-4 pt-4 border-t border-slate-100">
+        <div className="space-y-4 pt-4 border-t border-gray-100">
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium text-slate-500">التقييم الكلي:</span>
             <ScoreMeter score={result.score} />
@@ -136,10 +264,7 @@ function CvAnalyzerSection() {
             </p>
             <ul className="space-y-2.5">
               {result.feedback.map((item, i) => (
-                <li
-                  key={i}
-                  className="flex items-start gap-2.5 text-sm text-slate-700 leading-relaxed"
-                >
+                <li key={i} className="flex items-start gap-2.5 text-sm text-slate-700 leading-relaxed">
                   <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
                   {item}
                 </li>
@@ -152,19 +277,21 @@ function CvAnalyzerSection() {
   )
 }
 
+// ─── Cover Letter ─────────────────────────────────────────────────────────────
+
 function CoverLetterSection() {
-  const [result, setResult] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [result,    setResult]       = useState<string | null>(null)
+  const [error,     setError]        = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
     const userData = {
-      name: fd.get('name') as string,
+      name:     fd.get('name')     as string,
       jobTitle: fd.get('jobTitle') as string,
-      company: fd.get('company') as string,
-      skills: fd.get('skills') as string,
+      company:  fd.get('company')  as string,
+      skills:   fd.get('skills')   as string,
     }
     setError(null)
     startTransition(async () => {
@@ -178,8 +305,9 @@ function CoverLetterSection() {
   }
 
   return (
-    <section className="bg-white border border-slate-200 rounded-md p-6 space-y-5">
-      <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
+    <section className="bg-white border border-gray-200 rounded-md p-6 space-y-5">
+
+      <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
         <span className="text-xl" aria-hidden="true">✉</span>
         <div>
           <h2 className="text-base font-semibold text-slate-900">مولّد خطاب التغطية</h2>
@@ -195,43 +323,22 @@ function CoverLetterSection() {
             <label htmlFor="cl-name" className="block text-xs font-medium text-slate-500 mb-1.5">
               الاسم الكامل
             </label>
-            <input
-              id="cl-name"
-              name="name"
-              type="text"
-              required
-              disabled={isPending}
-              placeholder="محمد أحمد"
-              className={inputClass}
-            />
+            <input id="cl-name" name="name" type="text" required disabled={isPending}
+              placeholder="محمد أحمد" className={inputClass} />
           </div>
           <div>
             <label htmlFor="cl-job" className="block text-xs font-medium text-slate-500 mb-1.5">
               المسمى الوظيفي المستهدف
             </label>
-            <input
-              id="cl-job"
-              name="jobTitle"
-              type="text"
-              required
-              disabled={isPending}
-              placeholder="مهندس برمجيات"
-              className={inputClass}
-            />
+            <input id="cl-job" name="jobTitle" type="text" required disabled={isPending}
+              placeholder="مهندس برمجيات" className={inputClass} />
           </div>
           <div>
             <label htmlFor="cl-company" className="block text-xs font-medium text-slate-500 mb-1.5">
               الشركة المستهدفة
             </label>
-            <input
-              id="cl-company"
-              name="company"
-              type="text"
-              required
-              disabled={isPending}
-              placeholder="SAP AG"
-              className={inputClass}
-            />
+            <input id="cl-company" name="company" type="text" required disabled={isPending}
+              placeholder="SAP AG" className={inputClass} />
           </div>
         </div>
 
@@ -240,11 +347,7 @@ function CoverLetterSection() {
             المهارات والخبرات
           </label>
           <textarea
-            id="cl-skills"
-            name="skills"
-            rows={3}
-            required
-            disabled={isPending}
+            id="cl-skills" name="skills" rows={3} required disabled={isPending}
             placeholder="5 سنوات خبرة في Python وTypeScript، إتقان بناء REST APIs..."
             className={`${inputClass} resize-none`}
           />
@@ -253,7 +356,7 @@ function CoverLetterSection() {
         <button
           type="submit"
           disabled={isPending}
-          className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white text-sm font-medium rounded-md hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-semibold rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {isPending && <Spinner />}
           {isPending ? 'جاري الكتابة...' : 'ولّد خطاب التغطية'}
@@ -263,14 +366,14 @@ function CoverLetterSection() {
       {error && <ErrorBanner message={error} />}
 
       {result && !isPending && (
-        <div className="space-y-3 pt-4 border-t border-slate-100">
+        <div className="space-y-3 pt-4 border-t border-gray-100">
           <div className="flex items-center justify-between">
             <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">
               الخطاب المُولَّد
             </p>
             <CopyButton text={result} />
           </div>
-          <div className="border border-slate-200 rounded-md px-5 py-5 text-sm text-slate-800 leading-loose whitespace-pre-wrap bg-slate-50">
+          <div className="border border-gray-200 rounded-md px-5 py-5 text-sm text-slate-800 leading-loose whitespace-pre-wrap bg-slate-50">
             {result}
           </div>
         </div>
@@ -278,6 +381,8 @@ function CoverLetterSection() {
     </section>
   )
 }
+
+// ─── Export ───────────────────────────────────────────────────────────────────
 
 export default function CareerTools() {
   return (
