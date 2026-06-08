@@ -7,7 +7,11 @@ import {
   type DragEvent,
   type ChangeEvent,
 } from 'react'
-import { analyzeCvAction, generateCoverLetterAction } from './actions'
+import {
+  analyzeCvAction,
+  generateCoverLetterAction,
+  extractFileTextAction,
+} from './actions'
 import type { CvAnalysisResult } from './actions'
 
 // ─── Shared primitives ────────────────────────────────────────────────────────
@@ -68,7 +72,7 @@ const inputClass =
 
 type UploadedFile = { name: string; text: string }
 
-// ─── Shared FileDropzone component ───────────────────────────────────────────
+// ─── Shared FileDropzone ──────────────────────────────────────────────────────
 
 type FileDropzoneProps = {
   uploadedFile: UploadedFile | null
@@ -87,15 +91,22 @@ function FileDropzone({
   disabled = false,
   inputId = 'file-dropzone',
 }: FileDropzoneProps) {
-  const [dragOver, setDragOver] = useState(false)
+  const [dragOver,      setDragOver]      = useState(false)
+  const [isExtracting,  setIsExtracting]  = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  function readAsText(file: File): Promise<string> {
+  // Read the file as a base64 string (via data URL) — works correctly for
+  // binary formats like PDF/DOCX unlike readAsText which mangles binary bytes.
+  function readAsBase64(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
-      reader.onload  = () => resolve(reader.result as string)
+      reader.onload = () => {
+        const dataUrl = reader.result as string
+        // Strip the "data:<mime>;base64," prefix
+        resolve(dataUrl.slice(dataUrl.indexOf(',') + 1))
+      }
       reader.onerror = () => reject(new Error('read-error'))
-      reader.readAsText(file, 'UTF-8')
+      reader.readAsDataURL(file)
     })
   }
 
@@ -105,11 +116,16 @@ function FileDropzone({
       onError('الملفات المقبولة: PDF أو DOCX فقط')
       return
     }
+    setIsExtracting(true)
     try {
-      const text = await readAsText(file)
+      const base64 = await readAsBase64(file)
+      // Server action: robust PDF/DOCX text extraction with normalisation
+      const text   = await extractFileTextAction(base64, file.name)
       onFile({ name: file.name, text })
-    } catch {
-      onFile({ name: file.name, text: '' })
+    } catch (err) {
+      onError(err instanceof Error ? err.message : 'تعذّر قراءة الملف')
+    } finally {
+      setIsExtracting(false)
     }
   }
 
@@ -117,12 +133,12 @@ function FileDropzone({
     e.preventDefault()
     setDragOver(false)
     const file = e.dataTransfer.files[0]
-    if (file) processFile(file)
+    if (file) void processFile(file)
   }
 
   function handleChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (file) processFile(file)
+    if (file) void processFile(file)
   }
 
   function handleClear(e: React.MouseEvent) {
@@ -131,22 +147,26 @@ function FileDropzone({
     if (inputRef.current) inputRef.current.value = ''
   }
 
+  const isLocked = disabled || isExtracting
+
   return (
     <>
       <div
         role="button"
-        tabIndex={disabled ? -1 : 0}
+        tabIndex={isLocked ? -1 : 0}
         aria-label="منطقة رفع الملف — اسحب ملفك هنا أو انقر للاختيار"
-        onDragOver={(e) => { e.preventDefault(); if (!disabled) setDragOver(true) }}
+        onDragOver={(e) => { e.preventDefault(); if (!isLocked) setDragOver(true) }}
         onDragLeave={() => setDragOver(false)}
-        onDrop={disabled ? undefined : handleDrop}
-        onClick={() => !disabled && inputRef.current?.click()}
+        onDrop={isLocked ? undefined : handleDrop}
+        onClick={() => !isLocked && inputRef.current?.click()}
         onKeyDown={(e) => {
-          if (!disabled && (e.key === 'Enter' || e.key === ' ')) inputRef.current?.click()
+          if (!isLocked && (e.key === 'Enter' || e.key === ' ')) inputRef.current?.click()
         }}
         className={`cursor-pointer rounded-md border-2 border-dashed transition-colors px-6 py-8 text-center select-none ${
-          disabled
+          isLocked && !isExtracting
             ? 'opacity-50 cursor-not-allowed border-gray-200 bg-slate-50'
+            : isExtracting
+            ? 'border-blue-200 bg-blue-50 cursor-wait'
             : dragOver
             ? 'border-blue-400 bg-blue-50'
             : uploadedFile
@@ -154,7 +174,12 @@ function FileDropzone({
             : 'border-gray-200 bg-white hover:border-gray-300'
         }`}
       >
-        {uploadedFile ? (
+        {isExtracting ? (
+          <div className="flex flex-col items-center gap-2 pointer-events-none">
+            <Spinner />
+            <p className="text-sm text-slate-500">جاري قراءة الملف...</p>
+          </div>
+        ) : uploadedFile ? (
           <div className="flex flex-col items-center gap-2">
             <svg
               className="w-6 h-6 text-emerald-500"
@@ -196,7 +221,7 @@ function FileDropzone({
         type="file"
         accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         onChange={handleChange}
-        disabled={disabled}
+        disabled={isLocked}
         className="sr-only"
         aria-label="رفع الملف"
       />
@@ -246,7 +271,6 @@ function CvAnalyzerSection() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
 
-        {/* Paste textarea */}
         <div>
           <label htmlFor="cv-text" className="block text-xs font-medium text-slate-500 mb-1.5">
             الصق نص السيرة الذاتية
@@ -261,14 +285,12 @@ function CvAnalyzerSection() {
           />
         </div>
 
-        {/* OR divider */}
         <div className="flex items-center gap-3">
           <div className="flex-1 h-px bg-gray-200" />
           <span className="text-xs font-semibold text-slate-400 select-none">أو</span>
           <div className="flex-1 h-px bg-gray-200" />
         </div>
 
-        {/* File upload */}
         <div>
           <p className="text-xs font-medium text-slate-500 mb-1.5">رفع ملف السيرة الذاتية</p>
           <FileDropzone
@@ -281,7 +303,6 @@ function CvAnalyzerSection() {
           />
         </div>
 
-        {/* Privacy note */}
         <p className="text-xs text-slate-500 bg-slate-50 border border-gray-200 rounded-md px-4 py-3 leading-relaxed">
           🔒 نحن نحترم خصوصيتك بالكامل: ملفك يتم تحليله فوراً في الذاكرة ولا يتم تخزينه أو مشاركته مع أي جهة خارجية.
         </p>
@@ -360,7 +381,6 @@ function CoverLetterSection() {
   return (
     <section className="bg-white border border-gray-200 rounded-md p-6 space-y-5">
 
-      {/* Header */}
       <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
         <span className="text-xl" aria-hidden="true">✉</span>
         <div>
@@ -373,7 +393,6 @@ function CoverLetterSection() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
 
-        {/* Job Description */}
         <div>
           <label htmlFor="cl-jd" className="block text-xs font-medium text-slate-500 mb-1.5">
             وصف الوظيفة
@@ -390,7 +409,6 @@ function CoverLetterSection() {
           />
         </div>
 
-        {/* CV file upload */}
         <div>
           <p className="text-xs font-medium text-slate-500 mb-1.5">
             قم برفع سيرتك الذاتية
@@ -406,7 +424,6 @@ function CoverLetterSection() {
           />
         </div>
 
-        {/* Submit */}
         <button
           type="submit"
           disabled={isPending}
@@ -419,7 +436,6 @@ function CoverLetterSection() {
 
       {error && <ErrorBanner message={error} />}
 
-      {/* Result */}
       {result && !isPending && (
         <div className="space-y-3 pt-4 border-t border-gray-100">
           <div className="flex items-center justify-between">
