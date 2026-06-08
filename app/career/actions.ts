@@ -50,6 +50,8 @@ async function callDeepSeek(
   return data.choices[0].message.content
 }
 
+// ─── CV Analysis ──────────────────────────────────────────────────────────────
+
 export async function analyzeCvAction(cvText: string): Promise<CvAnalysisResult> {
   const content = await callDeepSeek(
     [
@@ -84,28 +86,20 @@ export async function analyzeCvAction(cvText: string): Promise<CvAnalysisResult>
   return { score, feedback }
 }
 
+// ─── Cover Letter ─────────────────────────────────────────────────────────────
+
 export async function generateCoverLetterAction(userData: {
-  target:     string
-  background: string
+  jobDescription: string
+  cvText:         string
 }): Promise<string> {
   return callDeepSeek([
     {
       role: 'system',
-      content: `أنت كاتب محترف متخصص في صياغة خطابات التغطية المقنعة باللغة العربية للشركات الدولية، مع مراعاة المعايير المهنية الألمانية والأوروبية. اكتب خطاباً احترافياً ومخصصاً يعكس قيمة المرشح بشكل مميز.`,
+      content: `Act as an expert HR recruiter. Analyze the provided Job Description and dynamically tailor a professional Cover Letter in Arabic based strictly on the highlights and experience found in the provided CV Text. The letter must be compelling, concise, and precisely aligned with the role requirements. Write in formal Arabic.`,
     },
     {
       role: 'user',
-      content: `اكتب خطاب تغطية احترافياً باللغة العربية بناءً على المعطيات التالية:
-
-الوظيفة المستهدفة والشركة: ${userData.target}
-نبذة عن المتقدم وخبراته: ${userData.background}
-
-المتطلبات:
-• مقدمة جذابة تلفت انتباه صاحب العمل فوراً
-• ربط ذكي بين خبرات المتقدم ومتطلبات الوظيفة
-• إبراز القيمة المضافة الفريدة للمرشح
-• خاتمة بدعوة واضحة ومقنعة للتواصل
-• 3 إلى 4 فقرات متماسكة واحترافية`,
+      content: `Job Description:\n${userData.jobDescription}\n\nCV Text:\n${userData.cvText}`,
     },
   ])
 }

@@ -285,8 +285,8 @@ function CoverLetterSection() {
     startTransition(async () => {
       try {
         const letter = await generateCoverLetterAction({
-          target:     fd.get('target')     as string,
-          background: fd.get('background') as string,
+          jobDescription: fd.get('jobDescription') as string,
+          cvText:         fd.get('cvText')         as string,
         })
         setResult(letter)
       } catch (err) {
@@ -304,41 +304,42 @@ function CoverLetterSection() {
         <div>
           <h2 className="text-base font-semibold text-slate-900">مولّد خطاب التغطية</h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            خطاب احترافي مخصص — أدخل الوظيفة وخلفيتك، والذكاء الاصطناعي يكتب الباقي
+            الصق وصف الوظيفة وسيرتك الذاتية — يُولَّد الخطاب مخصصاً لكل وظيفة
           </p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
 
-        {/* Target role + company — single clean line */}
+        {/* Job Description */}
         <div>
-          <label htmlFor="cl-target" className="block text-xs font-medium text-slate-500 mb-1.5">
-            الوظيفة المستهدفة والشركة
+          <label htmlFor="cl-jd" className="block text-xs font-medium text-slate-500 mb-1.5">
+            وصف الوظيفة
+            <span className="font-normal text-slate-400 ms-1.5">(Job Description)</span>
           </label>
-          <input
-            id="cl-target"
-            name="target"
-            type="text"
+          <textarea
+            id="cl-jd"
+            name="jobDescription"
+            rows={6}
             required
             disabled={isPending}
-            placeholder="مثال: مهندس واجهات أمامية – SAP AG, برلين"
-            className={inputClass}
+            placeholder="الصق وصف الوظيفة كاملاً هنا (المهام، المتطلبات، المهارات المطلوبة)..."
+            className={`${inputClass} resize-none`}
           />
         </div>
 
-        {/* Background / skills — single textarea */}
+        {/* CV text */}
         <div>
-          <label htmlFor="cl-background" className="block text-xs font-medium text-slate-500 mb-1.5">
-            نبذة عنك وأبرز خبراتك
+          <label htmlFor="cl-cv" className="block text-xs font-medium text-slate-500 mb-1.5">
+            نص سيرتك الذاتية
           </label>
           <textarea
-            id="cl-background"
-            name="background"
-            rows={5}
+            id="cl-cv"
+            name="cvText"
+            rows={6}
             required
             disabled={isPending}
-            placeholder="اكتب مختصراً عن خبراتك، مهاراتك، وأبرز إنجازاتك المرتبطة بالوظيفة..."
+            placeholder="الصق نص سيرتك الذاتية هنا — سيُخصَّص الخطاب بناءً على خبراتك الفعلية..."
             className={`${inputClass} resize-none`}
           />
         </div>
