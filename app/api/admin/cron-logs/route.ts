@@ -1,9 +1,15 @@
-import { NextResponse } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
 import type { CronLogRecord } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
 
-// Fallback mock data used when Supabase is not yet configured
+const SECRET = process.env.CRON_SECRET ?? 'my_super_secret_cron_key_4352'
+
+function authorized(req: NextRequest): boolean {
+  const bearer = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '')
+  return bearer.length > 0 && bearer === SECRET
+}
+
 const MOCK_LOGS: CronLogRecord[] = [
   {
     id: 'mock-1',
@@ -57,8 +63,9 @@ const MOCK_LOGS: CronLogRecord[] = [
   },
 ]
 
-export async function GET() {
-  // Attempt live Supabase query
+export async function GET(req: NextRequest) {
+  if (!authorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   try {
     const { createSupabaseAdmin } = await import('@/lib/supabase')
     const supabase = createSupabaseAdmin()
@@ -72,7 +79,7 @@ export async function GET() {
       return NextResponse.json({ logs: data as CronLogRecord[], source: 'db' })
     }
   } catch {
-    // Supabase not configured yet — return mock data
+    // Supabase not configured — fall through to mock data
   }
 
   return NextResponse.json({ logs: MOCK_LOGS, source: 'mock' })

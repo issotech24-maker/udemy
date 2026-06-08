@@ -12,10 +12,10 @@ const RAPIDAPI_HOST = 'open-scholarships.p.rapidapi.com'
 const RAPIDAPI_BASE = `https://${RAPIDAPI_HOST}/api/scholarships`
 
 // ─── Raw API types ────────────────────────────────────────────────────────────
-// Field names are intentionally broad — actual keys revealed by console.log below.
+// Field names are intentionally broad — confirmed via API response inspection.
 
 interface RawScholarship {
-  // confirmed primary fields (from console.log payload)
+  // confirmed primary fields
   name?:    string                                           // → title
   summary?: string                                          // → description
   links?:   { apply_url?: string | null; info_url?: string | null; [k: string]: unknown }
@@ -149,9 +149,6 @@ async function fetchRapidAPI(): Promise<RawScholarship[]> {
 
   const body: unknown = await res.json()
 
-  // Debug: shows exact JSON keys returned by this API version
-  const sample = Array.isArray(body) ? (body as unknown[])[0] : body
-  console.log('RAW SCHOLARSHIP BODY SHAPE:', JSON.stringify(sample).slice(0, 2000))
 
   return extractScholarships(body)
 }
@@ -294,13 +291,12 @@ async function fetchScholarships(): Promise<ScholarshipInsert[]> {
 // ─── Route handler ────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
-  const HARDCODED_SECRET = 'my_super_secret_cron_key_4352'
-  const configuredSecret = process.env.CRON_SECRET ?? HARDCODED_SECRET
+  const SECRET      = process.env.CRON_SECRET ?? 'my_super_secret_cron_key_4352'
   const bearer      = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '')
   const querySecret = req.nextUrl.searchParams.get('secret') ?? ''
   const queryKey    = req.nextUrl.searchParams.get('key') ?? ''
   const incoming    = bearer || querySecret || queryKey
-  if (incoming !== configuredSecret && incoming !== HARDCODED_SECRET) {
+  if (!incoming || incoming !== SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

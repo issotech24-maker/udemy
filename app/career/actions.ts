@@ -1,4 +1,4 @@
-'use server'
+﻿'use server'
 
 // ─── NOTE ─────────────────────────────────────────────────────────────────────
 // PDF and DOCX text extraction is done with zero npm dependencies:
@@ -298,6 +298,10 @@ export async function extractFileTextAction(
   fileName:   string,
 ): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
   try {
+    // Reject files > ~7 MB binary (≈ 9.5 MB base64) to prevent timeout/OOM
+    if (fileBase64.length > 12_700_000) {
+      return { ok: false, error: 'حجم الملف كبير جداً — الحد الأقصى المسموح به 7 ميغابايت' }
+    }
     const ext = fileName.split('.').pop()?.toLowerCase() ?? ''
     const buf = Buffer.from(fileBase64, 'base64')
 

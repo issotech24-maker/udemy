@@ -22,6 +22,11 @@ export async function POST(req: NextRequest) {
 
   const { title = '', content = '', keywords = '' } = body
 
+  // Reject empty submissions
+  if (!title.trim() && !content.trim()) {
+    return NextResponse.json({ error: 'title or content is required' }, { status: 400 })
+  }
+
   const prompt = `أنت خبير في تحسين محركات البحث (SEO) للمحتوى العربي التقني.
 بناءً على المقال التالي، قدّم تحسينات SEO احترافية:
 
@@ -37,24 +42,29 @@ export async function POST(req: NextRequest) {
   "improvedIntro": "فقرة افتتاحية محسّنة (2-3 جمل)"
 }`
 
-  const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
-    body:    JSON.stringify({
-      model:           'deepseek-chat',
-      messages:        [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' },
-      temperature:     0.4,
-    }),
-  })
+  let res: Response
+  try {
+    res = await fetch('https://api.deepseek.com/v1/chat/completions', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
+      body:    JSON.stringify({
+        model:           'deepseek-chat',
+        messages:        [{ role: 'user', content: prompt }],
+        response_format: { type: 'json_object' },
+        temperature:     0.4,
+      }),
+    })
+  } catch {
+    return NextResponse.json({ error: 'Failed to reach DeepSeek API' }, { status: 502 })
+  }
 
   if (!res.ok) {
     const errText = await res.text().catch(() => String(res.status))
     return NextResponse.json({ error: 'DeepSeek error: ' + errText }, { status: 502 })
   }
 
-  const data = await res.json() as DeepSeekBody
   try {
+    const data   = await res.json() as DeepSeekBody
     const result = JSON.parse(data.choices[0].message.content)
     return NextResponse.json(result)
   } catch {

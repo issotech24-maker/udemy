@@ -3,12 +3,11 @@ import { createSupabaseAdmin } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
 
-const HARDCODED = 'my_super_secret_cron_key_4352'
+const SECRET = process.env.CRON_SECRET ?? 'my_super_secret_cron_key_4352'
 
 function authorized(req: NextRequest): boolean {
-  const configured = process.env.CRON_SECRET ?? HARDCODED
   const bearer = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '')
-  return bearer === configured || bearer === HARDCODED
+  return bearer.length > 0 && bearer === SECRET
 }
 
 type RouteContext = { params: Promise<{ id: string }> }

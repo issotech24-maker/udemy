@@ -197,10 +197,7 @@ async function fetchRapidAPI(): Promise<RapidCourse[]> {
   }
 
   const body: unknown = await res.json()
-  // Temporary debug — shows exact field names from this API version
-  console.log("RAW API BODY SHAPE:", JSON.stringify(Array.isArray(body) ? (body as unknown[])[0] : body).slice(0, 2000))
   const courses = extractCourses(body)
-  console.log("RAW API ITEM SAMPLE:", JSON.stringify(courses[0] ?? null))
 
   // Deduplicate by coupon code
   const seen = new Set<string>()
@@ -420,13 +417,12 @@ async function generateCouponsAI(): Promise<CouponInsert[]> {
 // ─── Route handler ────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
-  const HARDCODED_SECRET = 'my_super_secret_cron_key_4352'
-  const configuredSecret = process.env.CRON_SECRET ?? HARDCODED_SECRET
+  const SECRET      = process.env.CRON_SECRET ?? 'my_super_secret_cron_key_4352'
   const bearer      = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '')
   const querySecret = req.nextUrl.searchParams.get('secret') ?? ''
   const queryKey    = req.nextUrl.searchParams.get('key') ?? ''
   const incoming    = bearer || querySecret || queryKey
-  if (incoming !== configuredSecret && incoming !== HARDCODED_SECRET) {
+  if (!incoming || incoming !== SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
