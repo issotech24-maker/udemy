@@ -139,7 +139,6 @@ function CvAnalyzerSection() {
   return (
     <section className="bg-white border border-gray-200 rounded-md p-6 space-y-5">
 
-      {/* Header */}
       <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
         <span className="text-xl" aria-hidden="true">📊</span>
         <div>
@@ -152,7 +151,6 @@ function CvAnalyzerSection() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
 
-        {/* Paste textarea */}
         <div>
           <label htmlFor="cv-text" className="block text-xs font-medium text-slate-500 mb-1.5">
             الصق نص السيرة الذاتية
@@ -167,14 +165,12 @@ function CvAnalyzerSection() {
           />
         </div>
 
-        {/* Divider */}
         <div className="flex items-center gap-3">
           <div className="flex-1 h-px bg-gray-200" />
           <span className="text-xs font-semibold text-slate-400 select-none">أو</span>
           <div className="flex-1 h-px bg-gray-200" />
         </div>
 
-        {/* File upload dropzone */}
         <div>
           <p className="block text-xs font-medium text-slate-500 mb-1.5">
             رفع ملف السيرة الذاتية
@@ -182,7 +178,7 @@ function CvAnalyzerSection() {
           <div
             role="button"
             tabIndex={0}
-            aria-label="منطقة رفع الملف – اسحب ملفك هنا أو انقر للاختيار"
+            aria-label="منطقة رفع الملف"
             onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
@@ -234,12 +230,10 @@ function CvAnalyzerSection() {
           />
         </div>
 
-        {/* Privacy note */}
-        <p className="flex items-start gap-2 text-xs text-slate-500 bg-slate-50 border border-gray-200 rounded-md px-4 py-3 leading-relaxed">
+        <p className="text-xs text-slate-500 bg-slate-50 border border-gray-200 rounded-md px-4 py-3 leading-relaxed">
           🔒 نحن نحترم خصوصيتك بالكامل: ملفك يتم تحليله فوراً في الذاكرة ولا يتم تخزينه أو مشاركته مع أي جهة خارجية.
         </p>
 
-        {/* Submit */}
         <button
           type="submit"
           disabled={isPending}
@@ -287,16 +281,13 @@ function CoverLetterSection() {
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
-    const userData = {
-      name:     fd.get('name')     as string,
-      jobTitle: fd.get('jobTitle') as string,
-      company:  fd.get('company')  as string,
-      skills:   fd.get('skills')   as string,
-    }
     setError(null)
     startTransition(async () => {
       try {
-        const letter = await generateCoverLetterAction(userData)
+        const letter = await generateCoverLetterAction({
+          target:     fd.get('target')     as string,
+          background: fd.get('background') as string,
+        })
         setResult(letter)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'حدث خطأ غير متوقع')
@@ -307,52 +298,52 @@ function CoverLetterSection() {
   return (
     <section className="bg-white border border-gray-200 rounded-md p-6 space-y-5">
 
+      {/* Header */}
       <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
         <span className="text-xl" aria-hidden="true">✉</span>
         <div>
           <h2 className="text-base font-semibold text-slate-900">مولّد خطاب التغطية</h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            خطاب احترافي مخصص بالذكاء الاصطناعي
+            خطاب احترافي مخصص — أدخل الوظيفة وخلفيتك، والذكاء الاصطناعي يكتب الباقي
           </p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label htmlFor="cl-name" className="block text-xs font-medium text-slate-500 mb-1.5">
-              الاسم الكامل
-            </label>
-            <input id="cl-name" name="name" type="text" required disabled={isPending}
-              placeholder="محمد أحمد" className={inputClass} />
-          </div>
-          <div>
-            <label htmlFor="cl-job" className="block text-xs font-medium text-slate-500 mb-1.5">
-              المسمى الوظيفي المستهدف
-            </label>
-            <input id="cl-job" name="jobTitle" type="text" required disabled={isPending}
-              placeholder="مهندس برمجيات" className={inputClass} />
-          </div>
-          <div>
-            <label htmlFor="cl-company" className="block text-xs font-medium text-slate-500 mb-1.5">
-              الشركة المستهدفة
-            </label>
-            <input id="cl-company" name="company" type="text" required disabled={isPending}
-              placeholder="SAP AG" className={inputClass} />
-          </div>
+
+        {/* Target role + company — single clean line */}
+        <div>
+          <label htmlFor="cl-target" className="block text-xs font-medium text-slate-500 mb-1.5">
+            الوظيفة المستهدفة والشركة
+          </label>
+          <input
+            id="cl-target"
+            name="target"
+            type="text"
+            required
+            disabled={isPending}
+            placeholder="مثال: مهندس واجهات أمامية – SAP AG, برلين"
+            className={inputClass}
+          />
         </div>
 
+        {/* Background / skills — single textarea */}
         <div>
-          <label htmlFor="cl-skills" className="block text-xs font-medium text-slate-500 mb-1.5">
-            المهارات والخبرات
+          <label htmlFor="cl-background" className="block text-xs font-medium text-slate-500 mb-1.5">
+            نبذة عنك وأبرز خبراتك
           </label>
           <textarea
-            id="cl-skills" name="skills" rows={3} required disabled={isPending}
-            placeholder="5 سنوات خبرة في Python وTypeScript، إتقان بناء REST APIs..."
+            id="cl-background"
+            name="background"
+            rows={5}
+            required
+            disabled={isPending}
+            placeholder="اكتب مختصراً عن خبراتك، مهاراتك، وأبرز إنجازاتك المرتبطة بالوظيفة..."
             className={`${inputClass} resize-none`}
           />
         </div>
 
+        {/* Submit */}
         <button
           type="submit"
           disabled={isPending}
@@ -365,6 +356,7 @@ function CoverLetterSection() {
 
       {error && <ErrorBanner message={error} />}
 
+      {/* Result */}
       {result && !isPending && (
         <div className="space-y-3 pt-4 border-t border-gray-100">
           <div className="flex items-center justify-between">

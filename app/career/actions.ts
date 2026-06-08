@@ -76,7 +76,7 @@ export async function analyzeCvAction(cvText: string): Promise<CvAnalysisResult>
   }
 
   const p = parsed as { score?: unknown; feedback?: unknown }
-  const score = Math.max(0, Math.min(100, Math.round(Number(p.score ?? 0))))
+  const score    = Math.max(0, Math.min(100, Math.round(Number(p.score ?? 0))))
   const feedback = Array.isArray(p.feedback)
     ? (p.feedback as unknown[]).map(String)
     : []
@@ -85,10 +85,8 @@ export async function analyzeCvAction(cvText: string): Promise<CvAnalysisResult>
 }
 
 export async function generateCoverLetterAction(userData: {
-  name: string
-  jobTitle: string
-  company: string
-  skills: string
+  target:     string
+  background: string
 }): Promise<string> {
   return callDeepSeek([
     {
@@ -97,15 +95,14 @@ export async function generateCoverLetterAction(userData: {
     },
     {
       role: 'user',
-      content: `اكتب خطاب تغطية احترافياً باللغة العربية بناءً على هذه المعطيات:
-- الاسم الكامل: ${userData.name}
-- المسمى الوظيفي المستهدف: ${userData.jobTitle}
-- الشركة المستهدفة: ${userData.company}
-- المهارات والخبرات: ${userData.skills}
+      content: `اكتب خطاب تغطية احترافياً باللغة العربية بناءً على المعطيات التالية:
+
+الوظيفة المستهدفة والشركة: ${userData.target}
+نبذة عن المتقدم وخبراته: ${userData.background}
 
 المتطلبات:
 • مقدمة جذابة تلفت انتباه صاحب العمل فوراً
-• ربط ذكي بين المهارات ومتطلبات المنصب
+• ربط ذكي بين خبرات المتقدم ومتطلبات الوظيفة
 • إبراز القيمة المضافة الفريدة للمرشح
 • خاتمة بدعوة واضحة ومقنعة للتواصل
 • 3 إلى 4 فقرات متماسكة واحترافية`,
