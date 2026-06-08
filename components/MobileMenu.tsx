@@ -4,29 +4,25 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
 const navLinks = [
-  { href: '/', label: 'الرئيسية' },
-  { href: '/coupons', label: 'كوبونات يوديمي' },
-  { href: '/scholarships', label: 'المنح الدراسية' },
-  { href: '/career', label: 'أدوات التوظيف الذكية' },
-  { href: '/roadmaps', label: 'خارطة الطريق المهنية' },
+  { href: '/',             label: 'الرئيسية'             },
+  { href: '/coupons',      label: 'كوبونات يوديمي'       },
+  { href: '/scholarships', label: 'المنح الدراسية'       },
+  { href: '/career',       label: 'أدوات التوظيف الذكية' },
+  { href: '/roadmaps',     label: 'خارطة الطريق المهنية' },
 ]
 
 export default function MobileMenu() {
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false)
-    }
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') setOpen(false) }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
   useEffect(() => {
     document.body.style.overflow = open ? 'hidden' : ''
-    return () => {
-      document.body.style.overflow = ''
-    }
+    return () => { document.body.style.overflow = '' }
   }, [open])
 
   return (
@@ -37,21 +33,9 @@ export default function MobileMenu() {
         aria-expanded={open}
         className="md:hidden flex flex-col justify-center items-center w-9 h-9 gap-[5px] rounded-md hover:bg-slate-100 transition-colors"
       >
-        <span
-          className={`block w-5 h-0.5 bg-slate-700 rounded-full transition-all duration-200 origin-center ${
-            open ? 'translate-y-[7px] rotate-45' : ''
-          }`}
-        />
-        <span
-          className={`block w-5 h-0.5 bg-slate-700 rounded-full transition-all duration-200 ${
-            open ? 'opacity-0' : ''
-          }`}
-        />
-        <span
-          className={`block w-5 h-0.5 bg-slate-700 rounded-full transition-all duration-200 origin-center ${
-            open ? '-translate-y-[7px] -rotate-45' : ''
-          }`}
-        />
+        <span className={`block w-5 h-0.5 bg-slate-700 rounded-full transition-all duration-200 origin-center ${open ? 'translate-y-[7px] rotate-45' : ''}`} />
+        <span className={`block w-5 h-0.5 bg-slate-700 rounded-full transition-all duration-200 ${open ? 'opacity-0' : ''}`} />
+        <span className={`block w-5 h-0.5 bg-slate-700 rounded-full transition-all duration-200 origin-center ${open ? '-translate-y-[7px] -rotate-45' : ''}`} />
       </button>
 
       {open && (
@@ -65,7 +49,7 @@ export default function MobileMenu() {
       <div
         role="navigation"
         aria-label="القائمة الرئيسية"
-        className={`fixed top-16 inset-x-0 z-50 bg-white border-b border-slate-200 shadow-lg md:hidden transition-all duration-200 ${
+        className={`fixed top-16 inset-x-0 z-50 bg-white border-b border-slate-200 shadow-md md:hidden transition-all duration-200 ${
           open
             ? 'opacity-100 translate-y-0 pointer-events-auto'
             : 'opacity-0 -translate-y-2 pointer-events-none'
@@ -77,11 +61,20 @@ export default function MobileMenu() {
               key={link.href}
               href={link.href}
               onClick={() => setOpen(false)}
-              className="block px-3 py-2.5 text-sm font-medium text-slate-700 rounded-md hover:bg-slate-100 hover:text-slate-900 transition-colors"
+              className="block px-3 py-2.5 text-sm font-medium text-slate-700 rounded-md hover:bg-slate-50 hover:text-slate-900 transition-colors"
             >
               {link.label}
             </Link>
           ))}
+          <div className="pt-2 mt-1 border-t border-slate-100">
+            <Link
+              href="/coupons"
+              onClick={() => setOpen(false)}
+              className="block text-center px-3 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-md transition-colors"
+            >
+              ابدأ مجاناً — استعرض الكوبونات
+            </Link>
+          </div>
         </div>
       </div>
     </>

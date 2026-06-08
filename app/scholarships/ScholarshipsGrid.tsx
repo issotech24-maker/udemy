@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect } from 'react'
 import Link                    from 'next/link'
@@ -187,14 +187,14 @@ function ScholarshipCard({ s }: { s: Scholarship }) {
             href={s.official_link}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-block text-center text-sm font-semibold px-6 py-2.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-white rounded-md transition-colors shrink-0"
+            className="inline-block text-center text-sm font-semibold px-6 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-md transition-colors shrink-0"
           >
             تفاصيل المنحة والتقديم
           </a>
         ) : (
           <Link
             href={`/scholarships/${s.id}`}
-            className="inline-block text-center text-sm font-semibold px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-md transition-colors shrink-0"
+            className="inline-block text-center text-sm font-semibold px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors shrink-0"
           >
             تفاصيل المنحة
           </Link>
@@ -228,7 +228,7 @@ function FilterChips({
             aria-pressed={isActive}
             className={`px-4 py-1.5 text-xs font-semibold rounded-md border transition-colors ${
               isActive
-                ? 'bg-slate-900 text-white border-slate-900'
+                ? 'bg-blue-600 text-white border-blue-600'
                 : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
             }`}
           >

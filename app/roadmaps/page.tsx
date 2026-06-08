@@ -216,14 +216,14 @@ export default async function RoadmapsPage() {
                 {fromDB ? (
                   <Link
                     href={'/roadmaps/' + roadmap.id}
-                    className="text-xs font-medium text-emerald-700 hover:text-emerald-900 underline underline-offset-2 me-auto transition-colors"
+                    className="text-xs font-medium text-blue-600 hover:text-blue-800 underline underline-offset-2 me-auto transition-colors"
                   >
                     ← تفاصيل ومنح مرتبطة
                   </Link>
                 ) : (
                   <a
                     href="/coupons"
-                    className="text-xs font-medium text-slate-600 hover:text-slate-900 underline underline-offset-2 me-auto transition-colors"
+                    className="text-xs font-medium text-blue-600 hover:text-blue-800 underline underline-offset-2 me-auto transition-colors"
                   >
                     ← تصفح الكوبونات لهذه التقنيات
                   </a>
