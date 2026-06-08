@@ -89,21 +89,20 @@ function FileDropzone({
   onClear,
   onError,
   disabled = false,
-  inputId = 'file-dropzone',
+  inputId  = 'file-dropzone',
 }: FileDropzoneProps) {
-  const [dragOver,      setDragOver]      = useState(false)
-  const [isExtracting,  setIsExtracting]  = useState(false)
+  const [dragOver,     setDragOver]     = useState(false)
+  const [isExtracting, setIsExtracting] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Read the file as a base64 string (via data URL) — works correctly for
-  // binary formats like PDF/DOCX unlike readAsText which mangles binary bytes.
+  // Read the file as a base64 string (data URL → strip prefix).
+  // readAsDataURL handles binary files correctly; readAsText mangles PDF/DOCX bytes.
   function readAsBase64(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = () => {
-        const dataUrl = reader.result as string
-        // Strip the "data:<mime>;base64," prefix
-        resolve(dataUrl.slice(dataUrl.indexOf(',') + 1))
+        const url = reader.result as string
+        resolve(url.slice(url.indexOf(',') + 1))
       }
       reader.onerror = () => reject(new Error('read-error'))
       reader.readAsDataURL(file)
@@ -119,11 +118,14 @@ function FileDropzone({
     setIsExtracting(true)
     try {
       const base64 = await readAsBase64(file)
-      // Server action: robust PDF/DOCX text extraction with normalisation
-      const text   = await extractFileTextAction(base64, file.name)
-      onFile({ name: file.name, text })
-    } catch (err) {
-      onError(err instanceof Error ? err.message : 'تعذّر قراءة الملف')
+      const result = await extractFileTextAction(base64, file.name)
+      if (!result.ok) {
+        onError(result.error)
+        return
+      }
+      onFile({ name: file.name, text: result.text })
+    } catch {
+      onError('تعذّر قراءة الملف — يرجى المحاولة مرة أخرى')
     } finally {
       setIsExtracting(false)
     }
@@ -186,7 +188,8 @@ function FileDropzone({
               fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"
               aria-hidden="true"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round"
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <span className="text-sm font-semibold text-emerald-700">{uploadedFile.name}</span>
             <button
@@ -204,7 +207,8 @@ function FileDropzone({
               fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"
               aria-hidden="true"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+              <path strokeLinecap="round" strokeLinejoin="round"
+                d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
             </svg>
             <p className="text-sm text-slate-600">
               اسحب الملف هنا أو{' '}
@@ -241,15 +245,11 @@ function CvAnalyzerSection() {
     e.preventDefault()
     const textarea = e.currentTarget.elements.namedItem('cvText') as HTMLTextAreaElement
     const cvText   = uploadedFile?.text || textarea.value.trim()
-    if (!cvText) {
-      setError('يرجى إدخال نص السيرة الذاتية أو رفع ملف')
-      return
-    }
+    if (!cvText) { setError('يرجى إدخال نص السيرة الذاتية أو رفع ملف'); return }
     setError(null)
     startTransition(async () => {
       try {
-        const r = await analyzeCvAction(cvText)
-        setResult(r)
+        setResult(await analyzeCvAction(cvText))
       } catch (err) {
         setError(err instanceof Error ? err.message : 'حدث خطأ غير متوقع')
       }
@@ -263,14 +263,11 @@ function CvAnalyzerSection() {
         <span className="text-xl" aria-hidden="true">📊</span>
         <div>
           <h2 className="text-base font-semibold text-slate-900">محلّل السيرة الذاتية</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            تقييم شامل وفق معايير ATS الألمانية والأوروبية
-          </p>
+          <p className="text-xs text-slate-500 mt-0.5">تقييم شامل وفق معايير ATS الألمانية والأوروبية</p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-
         <div>
           <label htmlFor="cv-text" className="block text-xs font-medium text-slate-500 mb-1.5">
             الصق نص السيرة الذاتية
@@ -326,9 +323,7 @@ function CvAnalyzerSection() {
             <ScoreMeter score={result.score} />
           </div>
           <div>
-            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-3">
-              تحليل مفصّل
-            </p>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-3">تحليل مفصّل</p>
             <ul className="space-y-2.5">
               {result.feedback.map((item, i) => (
                 <li key={i} className="flex items-start gap-2.5 text-sm text-slate-700 leading-relaxed">
@@ -354,24 +349,13 @@ function CoverLetterSection() {
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!cvFile) {
-      setError('يرجى رفع ملف السيرة الذاتية أولاً')
-      return
-    }
-    if (!cvFile.text) {
-      setError('تعذّر استخراج النص من الملف — تأكد أن الملف يحتوي على نص قابل للقراءة')
-      return
-    }
-    const fd             = new FormData(e.currentTarget)
-    const jobDescription = fd.get('jobDescription') as string
+    if (!cvFile)      { setError('يرجى رفع ملف السيرة الذاتية أولاً'); return }
+    if (!cvFile.text) { setError('تعذّر استخراج النص من الملف — تأكد أن الملف يحتوي على نص قابل للقراءة'); return }
+    const jobDescription = (new FormData(e.currentTarget).get('jobDescription') as string) ?? ''
     setError(null)
     startTransition(async () => {
       try {
-        const letter = await generateCoverLetterAction({
-          jobDescription,
-          cvText: cvFile.text,
-        })
-        setResult(letter)
+        setResult(await generateCoverLetterAction({ jobDescription, cvText: cvFile.text }))
       } catch (err) {
         setError(err instanceof Error ? err.message : 'حدث خطأ غير متوقع')
       }
@@ -385,14 +369,11 @@ function CoverLetterSection() {
         <span className="text-xl" aria-hidden="true">✉</span>
         <div>
           <h2 className="text-base font-semibold text-slate-900">مولّد خطاب التغطية</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            أدخل وصف الوظيفة وارفع سيرتك الذاتية — يُولَّد الخطاب مخصصاً بدقة
-          </p>
+          <p className="text-xs text-slate-500 mt-0.5">أدخل وصف الوظيفة وارفع سيرتك الذاتية — يُولَّد الخطاب مخصصاً بدقة</p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-
         <div>
           <label htmlFor="cl-jd" className="block text-xs font-medium text-slate-500 mb-1.5">
             وصف الوظيفة
@@ -439,9 +420,7 @@ function CoverLetterSection() {
       {result && !isPending && (
         <div className="space-y-3 pt-4 border-t border-gray-100">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">
-              الخطاب المُولَّد
-            </p>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">الخطاب المُولَّد</p>
             <CopyButton text={result} />
           </div>
           <div className="border border-gray-200 rounded-md px-5 py-5 text-sm text-slate-800 leading-loose whitespace-pre-wrap bg-slate-50">
