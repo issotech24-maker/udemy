@@ -64,23 +64,37 @@ function ErrorBanner({ message }: { message: string }) {
 const inputClass =
   'w-full text-sm border border-gray-200 rounded-md px-3 py-2 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-slate-400 transition-colors bg-white disabled:bg-slate-50 disabled:text-slate-400'
 
-// ─── CV Analyzer ──────────────────────────────────────────────────────────────
+// ─── Shared file types ────────────────────────────────────────────────────────
 
 type UploadedFile = { name: string; text: string }
 
-function CvAnalyzerSection() {
-  const [result,       setResult]       = useState<CvAnalysisResult | null>(null)
-  const [error,        setError]        = useState<string | null>(null)
-  const [isPending,    startTransition] = useTransition()
-  const [dragOver,     setDragOver]     = useState(false)
-  const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+// ─── Shared FileDropzone component ───────────────────────────────────────────
+
+type FileDropzoneProps = {
+  uploadedFile: UploadedFile | null
+  onFile:       (f: UploadedFile) => void
+  onClear:      () => void
+  onError:      (msg: string) => void
+  disabled?:    boolean
+  inputId?:     string
+}
+
+function FileDropzone({
+  uploadedFile,
+  onFile,
+  onClear,
+  onError,
+  disabled = false,
+  inputId = 'file-dropzone',
+}: FileDropzoneProps) {
+  const [dragOver, setDragOver] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   function readAsText(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.onload  = () => resolve(reader.result as string)
-      reader.onerror = () => reject(new Error('تعذّر قراءة الملف'))
+      reader.onerror = () => reject(new Error('read-error'))
       reader.readAsText(file, 'UTF-8')
     })
   }
@@ -88,15 +102,14 @@ function CvAnalyzerSection() {
   async function processFile(file: File) {
     const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
     if (ext !== 'pdf' && ext !== 'docx') {
-      setError('الملفات المقبولة: PDF أو DOCX فقط')
+      onError('الملفات المقبولة: PDF أو DOCX فقط')
       return
     }
-    setError(null)
     try {
       const text = await readAsText(file)
-      setUploadedFile({ name: file.name, text })
+      onFile({ name: file.name, text })
     } catch {
-      setUploadedFile({ name: file.name, text: '' })
+      onFile({ name: file.name, text: '' })
     }
   }
 
@@ -107,15 +120,97 @@ function CvAnalyzerSection() {
     if (file) processFile(file)
   }
 
-  function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
+  function handleChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (file) processFile(file)
   }
 
-  function clearFile() {
-    setUploadedFile(null)
-    if (fileInputRef.current) fileInputRef.current.value = ''
+  function handleClear(e: React.MouseEvent) {
+    e.stopPropagation()
+    onClear()
+    if (inputRef.current) inputRef.current.value = ''
   }
+
+  return (
+    <>
+      <div
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+        aria-label="منطقة رفع الملف — اسحب ملفك هنا أو انقر للاختيار"
+        onDragOver={(e) => { e.preventDefault(); if (!disabled) setDragOver(true) }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={disabled ? undefined : handleDrop}
+        onClick={() => !disabled && inputRef.current?.click()}
+        onKeyDown={(e) => {
+          if (!disabled && (e.key === 'Enter' || e.key === ' ')) inputRef.current?.click()
+        }}
+        className={`cursor-pointer rounded-md border-2 border-dashed transition-colors px-6 py-8 text-center select-none ${
+          disabled
+            ? 'opacity-50 cursor-not-allowed border-gray-200 bg-slate-50'
+            : dragOver
+            ? 'border-blue-400 bg-blue-50'
+            : uploadedFile
+            ? 'border-emerald-300 bg-emerald-50'
+            : 'border-gray-200 bg-white hover:border-gray-300'
+        }`}
+      >
+        {uploadedFile ? (
+          <div className="flex flex-col items-center gap-2">
+            <svg
+              className="w-6 h-6 text-emerald-500"
+              fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-sm font-semibold text-emerald-700">{uploadedFile.name}</span>
+            <button
+              type="button"
+              onClick={handleClear}
+              className="text-xs text-slate-400 hover:text-slate-700 underline underline-offset-2 transition-colors"
+            >
+              إزالة الملف
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-2 pointer-events-none">
+            <svg
+              className="w-8 h-8 text-slate-300"
+              fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+            </svg>
+            <p className="text-sm text-slate-600">
+              اسحب الملف هنا أو{' '}
+              <span className="font-semibold text-blue-600">اختر من جهازك</span>
+            </p>
+            <p className="text-xs text-slate-400">PDF, DOCX · حجم أقصى 5 ميغابايت</p>
+          </div>
+        )}
+      </div>
+
+      <input
+        ref={inputRef}
+        id={inputId}
+        type="file"
+        accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        onChange={handleChange}
+        disabled={disabled}
+        className="sr-only"
+        aria-label="رفع الملف"
+      />
+    </>
+  )
+}
+
+// ─── CV Analyzer ──────────────────────────────────────────────────────────────
+
+function CvAnalyzerSection() {
+  const [result,       setResult]       = useState<CvAnalysisResult | null>(null)
+  const [error,        setError]        = useState<string | null>(null)
+  const [isPending,    startTransition] = useTransition()
+  const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -151,6 +246,7 @@ function CvAnalyzerSection() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
 
+        {/* Paste textarea */}
         <div>
           <label htmlFor="cv-text" className="block text-xs font-medium text-slate-500 mb-1.5">
             الصق نص السيرة الذاتية
@@ -165,71 +261,27 @@ function CvAnalyzerSection() {
           />
         </div>
 
+        {/* OR divider */}
         <div className="flex items-center gap-3">
           <div className="flex-1 h-px bg-gray-200" />
           <span className="text-xs font-semibold text-slate-400 select-none">أو</span>
           <div className="flex-1 h-px bg-gray-200" />
         </div>
 
+        {/* File upload */}
         <div>
-          <p className="block text-xs font-medium text-slate-500 mb-1.5">
-            رفع ملف السيرة الذاتية
-          </p>
-          <div
-            role="button"
-            tabIndex={0}
-            aria-label="منطقة رفع الملف"
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={handleDrop}
-            onClick={() => !isPending && fileInputRef.current?.click()}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click() }}
-            className={`cursor-pointer rounded-md border-2 border-dashed transition-colors px-6 py-8 text-center select-none ${
-              dragOver
-                ? 'border-blue-400 bg-blue-50'
-                : uploadedFile
-                ? 'border-emerald-300 bg-emerald-50'
-                : 'border-gray-200 bg-white hover:border-gray-300'
-            }`}
-          >
-            {uploadedFile ? (
-              <div className="flex flex-col items-center gap-2">
-                <svg className="w-6 h-6 text-emerald-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span className="text-sm font-semibold text-emerald-700">{uploadedFile.name}</span>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); clearFile() }}
-                  className="text-xs text-slate-400 hover:text-slate-700 underline underline-offset-2 transition-colors"
-                >
-                  إزالة الملف
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-2 pointer-events-none">
-                <svg className="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-                </svg>
-                <p className="text-sm text-slate-600">
-                  اسحب الملف هنا أو{' '}
-                  <span className="font-semibold text-blue-600">اختر من جهازك</span>
-                </p>
-                <p className="text-xs text-slate-400">PDF, DOCX · حجم أقصى 5 ميغابايت</p>
-              </div>
-            )}
-          </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            onChange={handleFileChange}
+          <p className="text-xs font-medium text-slate-500 mb-1.5">رفع ملف السيرة الذاتية</p>
+          <FileDropzone
+            inputId="cv-analyzer-file"
+            uploadedFile={uploadedFile}
+            onFile={(f) => { setUploadedFile(f); setError(null) }}
+            onClear={() => setUploadedFile(null)}
+            onError={setError}
             disabled={isPending}
-            className="sr-only"
-            aria-label="رفع ملف السيرة الذاتية"
           />
         </div>
 
+        {/* Privacy note */}
         <p className="text-xs text-slate-500 bg-slate-50 border border-gray-200 rounded-md px-4 py-3 leading-relaxed">
           🔒 نحن نحترم خصوصيتك بالكامل: ملفك يتم تحليله فوراً في الذاكرة ولا يتم تخزينه أو مشاركته مع أي جهة خارجية.
         </p>
@@ -277,16 +329,26 @@ function CoverLetterSection() {
   const [result,    setResult]       = useState<string | null>(null)
   const [error,     setError]        = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [cvFile,    setCvFile]       = useState<UploadedFile | null>(null)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    const fd = new FormData(e.currentTarget)
+    if (!cvFile) {
+      setError('يرجى رفع ملف السيرة الذاتية أولاً')
+      return
+    }
+    if (!cvFile.text) {
+      setError('تعذّر استخراج النص من الملف — تأكد أن الملف يحتوي على نص قابل للقراءة')
+      return
+    }
+    const fd             = new FormData(e.currentTarget)
+    const jobDescription = fd.get('jobDescription') as string
     setError(null)
     startTransition(async () => {
       try {
         const letter = await generateCoverLetterAction({
-          jobDescription: fd.get('jobDescription') as string,
-          cvText:         fd.get('cvText')         as string,
+          jobDescription,
+          cvText: cvFile.text,
         })
         setResult(letter)
       } catch (err) {
@@ -304,7 +366,7 @@ function CoverLetterSection() {
         <div>
           <h2 className="text-base font-semibold text-slate-900">مولّد خطاب التغطية</h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            الصق وصف الوظيفة وسيرتك الذاتية — يُولَّد الخطاب مخصصاً لكل وظيفة
+            أدخل وصف الوظيفة وارفع سيرتك الذاتية — يُولَّد الخطاب مخصصاً بدقة
           </p>
         </div>
       </div>
@@ -328,19 +390,19 @@ function CoverLetterSection() {
           />
         </div>
 
-        {/* CV text */}
+        {/* CV file upload */}
         <div>
-          <label htmlFor="cl-cv" className="block text-xs font-medium text-slate-500 mb-1.5">
-            نص سيرتك الذاتية
-          </label>
-          <textarea
-            id="cl-cv"
-            name="cvText"
-            rows={6}
-            required
+          <p className="text-xs font-medium text-slate-500 mb-1.5">
+            قم برفع سيرتك الذاتية
+            <span className="font-normal text-slate-400 ms-1">(PDF أو Word)</span>
+          </p>
+          <FileDropzone
+            inputId="cl-cv-file"
+            uploadedFile={cvFile}
+            onFile={(f) => { setCvFile(f); setError(null) }}
+            onClear={() => setCvFile(null)}
+            onError={setError}
             disabled={isPending}
-            placeholder="الصق نص سيرتك الذاتية هنا — سيُخصَّص الخطاب بناءً على خبراتك الفعلية..."
-            className={`${inputClass} resize-none`}
           />
         </div>
 
