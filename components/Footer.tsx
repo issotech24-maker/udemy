@@ -8,7 +8,7 @@ export default function Footer() {
           <div>
             <p className="font-bold text-slate-900 mb-1">UdemyRadar</p>
             <p className="text-sm text-slate-500">
-              منصة ذكية للطلاب العرب وأصحاب المهن التقنية
+              منصة ذكية للطلاب والمهنيين التقنيين
             </p>
           </div>
           <nav className="flex flex-wrap items-center gap-5 text-sm text-slate-500">
@@ -18,11 +18,11 @@ export default function Footer() {
             <Link href="/scholarships" className="hover:text-slate-900 transition-colors">
               المنح الدراسية
             </Link>
-            <Link href="/career" className="hover:text-slate-900 transition-colors">
-              أدوات التوظيف
-            </Link>
             <Link href="/roadmaps" className="hover:text-slate-900 transition-colors">
               خارطة الطريق
+            </Link>
+            <Link href="/blog" className="hover:text-slate-900 transition-colors">
+              المدونة
             </Link>
           </nav>
         </div>

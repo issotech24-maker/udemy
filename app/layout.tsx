@@ -11,7 +11,7 @@ const cairo = Cairo({
 const SITE_NAME        = "UdemyRadar"
 const SITE_TITLE       = "UdemyRadar – كوبونات يوديمي والمنح الدراسية"
 const SITE_DESCRIPTION =
-  "منصة ذكية للطلاب العرب للحصول على كوبونات يوديمي المجانية والمنح الدراسية وأدوات التوظيف وخارطة الطريق المهنية"
+  "منصة ذكية للطلاب والمهنيين للحصول على كوبونات يوديمي المجانية والمنح الدراسية وخارطة الطريق المهنية"
 
 export const metadata: Metadata = {
   title:       SITE_TITLE,
