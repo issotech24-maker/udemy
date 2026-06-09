@@ -160,8 +160,8 @@ export default async function CouponPage(
           {/* Description */}
           {displayDesc && (
             <div className="bg-white border border-slate-200 rounded-lg p-6 shadow-sm">
-              <h2 className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3">عن الدورة</h2>
-              <p className="text-sm text-slate-600 leading-relaxed">{displayDesc}</p>
+              <h2 className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3">تفاصيل الدورة</h2>
+              <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{displayDesc}</p>
             </div>
           )}
 

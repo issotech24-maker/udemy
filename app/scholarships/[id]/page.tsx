@@ -136,7 +136,10 @@ export default async function ScholarshipPage(
         {/* Body */}
         <div className="px-6 py-5 space-y-6">
           {s.description && (
-            <p className="text-sm text-slate-600 leading-relaxed">{s.description}</p>
+            <div>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2.5">تفاصيل المنحة</p>
+              <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{s.description}</p>
+            </div>
           )}
 
           {benefits.length > 0 && (

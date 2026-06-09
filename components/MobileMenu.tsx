@@ -8,6 +8,7 @@ const navLinks = [
   { href: '/coupons',      label: 'كوبونات يوديمي'       },
   { href: '/scholarships', label: 'المنح الدراسية'       },
   { href: '/roadmaps',     label: 'خارطة الطريق المهنية' },
+  { href: '/blog',         label: 'المدونة'               },
 ]
 
 export default function MobileMenu() {
