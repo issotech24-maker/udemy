@@ -174,7 +174,7 @@ export default function CouponsGrid({ coupons }: { coupons: Coupon[] }) {
   if (coupons.length === 0) {
     return (
       <div className="py-20 text-center">
-        <p className="text-sm text-slate-400">لا توجد كوبونات حالياً — سيتم التحديث تلقائياً كل 6 ساعات</p>
+        <p className="text-sm text-slate-400">لا توجد كوبونات حالياً — سيتم التحديث تلقائياً مرة يومياً</p>
       </div>
     )
   }

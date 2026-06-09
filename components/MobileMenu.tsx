@@ -7,7 +7,6 @@ const navLinks = [
   { href: '/',             label: 'الرئيسية'             },
   { href: '/coupons',      label: 'كوبونات يوديمي'       },
   { href: '/scholarships', label: 'المنح الدراسية'       },
-  { href: '/career',       label: 'أدوات التوظيف الذكية' },
   { href: '/roadmaps',     label: 'خارطة الطريق المهنية' },
 ]
 

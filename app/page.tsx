@@ -313,7 +313,7 @@ export default async function HomePage() {
             <h2 className="text-xl font-bold text-slate-900">استكشف المنصة</h2>
             <p className="text-sm text-slate-500 mt-0.5">كل ما تحتاجه لتطوير مسيرتك المهنية في مكان واحد</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {([
               {
                 href:  '/coupons',
@@ -328,13 +328,6 @@ export default async function HomePage() {
                 color: 'bg-blue-100 text-blue-800',
                 title: 'المنح الدراسية',
                 desc:  'تتبع مواعيد التقديم والشروط والمزايا لمئات المنح الدولية',
-              },
-              {
-                href:  '/career',
-                badge: 'توظيف',
-                color: 'bg-violet-100 text-violet-800',
-                title: 'أدوات التوظيف الذكية',
-                desc:  'توليد خطابات تغطية وتحليل السيرة الذاتية بالذكاء الاصطناعي',
               },
               {
                 href:  '/roadmaps',

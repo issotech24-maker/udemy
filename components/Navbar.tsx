@@ -4,7 +4,6 @@ import MobileMenu from './MobileMenu'
 const navLinks = [
   { href: '/coupons',      label: 'كوبونات يوديمي' },
   { href: '/scholarships', label: 'المنح الدراسية'  },
-  { href: '/career',       label: 'أدوات التوظيف'   },
   { href: '/roadmaps',     label: 'خارطة الطريق'    },
 ]
 

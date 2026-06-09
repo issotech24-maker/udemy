@@ -6,8 +6,8 @@ import type { RoadmapRecord, RoadmapStep } from '@/lib/types'
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'خارطة الطريق المهنية – UdemyRadar',
-  description: 'مسارات مهنية تقنية مفصّلة مرتبطة بكوبونات الدورات النشطة',
+  title: 'مسارات التعلم التقني – UdemyRadar',
+  description: 'خمسة مسارات مهنية مفصّلة تأخذك من الصفر إلى سوق العمل، مع كوبونات دورات Udemy مرتبطة في كل مرحلة',
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -19,11 +19,18 @@ type Roadmap = RoadmapRecord & {
 
 // ─── Styling ──────────────────────────────────────────────────────────────────
 
-const DIFFICULTY_COLOR: Record<string, string> = {
-  'مبتدئ': 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  'متوسط': 'bg-amber-50 text-amber-700 border-amber-200',
-  'متقدم': 'bg-rose-50 text-rose-700 border-rose-200',
+const DIFFICULTY_STYLE: Record<string, { badge: string; dot: string }> = {
+  'مبتدئ': { badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
+  'متوسط': { badge: 'bg-amber-50   text-amber-700   border-amber-200',   dot: 'bg-amber-500'  },
+  'متقدم': { badge: 'bg-rose-50    text-rose-700    border-rose-200',    dot: 'bg-rose-500'   },
 }
+
+const PHASE_COLORS = [
+  'bg-blue-600',
+  'bg-violet-600',
+  'bg-indigo-600',
+  'bg-emerald-600',
+]
 
 // ─── Mock data (fallback when DB is empty) ────────────────────────────────────
 
@@ -31,7 +38,7 @@ const mockRoadmaps: Roadmap[] = [
   {
     id: 'mock-1', created_at: '',
     title: 'مطوّر الواجهة الأمامية',
-    description: 'المسار الشامل لإتقان تطوير الواجهات الأمامية من الأساسيات إلى أدوات الإنتاج',
+    description: 'المسار الشامل لإتقان تطوير الواجهات الأمامية من أساسيات HTML إلى أدوات الإنتاج مع React وNext.js',
     category: 'تطوير الويب', difficulty: 'مبتدئ', total_duration: '6 أشهر',
     steps: [
       { phase: 'المرحلة 1', title: 'أساسيات الويب', skills: ['HTML5', 'CSS3', 'JavaScript ES6+', 'Flexbox & Grid'], duration: '6 – 8 أسابيع' },
@@ -44,7 +51,7 @@ const mockRoadmaps: Roadmap[] = [
   {
     id: 'mock-2', created_at: '',
     title: 'مطوّر الواجهة الخلفية',
-    description: 'بناء APIs قوية وقواعد بيانات وأنظمة خلفية قابلة للتوسع وفق أفضل الممارسات',
+    description: 'بناء APIs قوية وقواعد بيانات وأنظمة خلفية قابلة للتوسع وفق أفضل ممارسات الصناعة',
     category: 'تطوير الويب', difficulty: 'متوسط', total_duration: '5 أشهر',
     steps: [
       { phase: 'المرحلة 1', title: 'أساسيات الخادم', skills: ['Node.js', 'Express', 'HTTP/REST', 'PostgreSQL'], duration: '5 – 6 أسابيع' },
@@ -57,20 +64,20 @@ const mockRoadmaps: Roadmap[] = [
   {
     id: 'mock-3', created_at: '',
     title: 'مهندس الذكاء الاصطناعي',
-    description: 'مسار متكامل من الأسس الرياضية إلى بناء نماذج LLM ونشر تطبيقات الذكاء الاصطناعي الحقيقية',
+    description: 'مسار متكامل من الأسس الرياضية إلى بناء نماذج LLM ونشر تطبيقات الذكاء الاصطناعي في بيئات الإنتاج',
     category: 'ذكاء اصطناعي', difficulty: 'متقدم', total_duration: '10 أشهر',
     steps: [
       { phase: 'المرحلة 1', title: 'الأسس الرياضية والبرمجية', skills: ['Python', 'NumPy', 'Linear Algebra', 'Statistics'], duration: '6 – 8 أسابيع' },
       { phase: 'المرحلة 2', title: 'تعلم الآلة الكلاسيكي', skills: ['Scikit-learn', 'Pandas', 'Feature Engineering', 'Model Evaluation'], duration: '8 – 10 أسابيع' },
       { phase: 'المرحلة 3', title: 'التعلم العميق', skills: ['PyTorch', 'CNNs & RNNs', 'Transformers', 'Hugging Face'], duration: '8 – 10 أسابيع' },
-      { phase: 'المرحلة 4', title: 'تطبيقات LLM', skills: ['LangChain', 'RAG', 'Fine-tuning', 'API Deployment'], duration: '6 – 8 أسابيع' },
+      { phase: 'المرحلة 4', title: 'تطبيقات LLM والنشر', skills: ['LangChain', 'RAG', 'Fine-tuning', 'API Deployment'], duration: '6 – 8 أسابيع' },
     ],
     associated_keywords: ['Python', 'PyTorch', 'LangChain', 'AI'],
   },
   {
     id: 'mock-4', created_at: '',
     title: 'مهندس DevOps والبنية التحتية',
-    description: 'مسار تحويلي لإتقان عمليات التطوير والنشر وإدارة البنية التحتية السحابية',
+    description: 'إتقان عمليات التطوير والنشر المستمر وإدارة البنية التحتية السحابية بأدوات الصناعة',
     category: 'DevOps', difficulty: 'متوسط', total_duration: '7 أشهر',
     steps: [
       { phase: 'المرحلة 1', title: 'Linux والشبكات', skills: ['Linux CLI', 'Bash Scripting', 'TCP/IP', 'SSH & Security'], duration: '5 – 6 أسابيع' },
@@ -83,7 +90,7 @@ const mockRoadmaps: Roadmap[] = [
   {
     id: 'mock-5', created_at: '',
     title: 'مطوّر تطبيقات الجوال',
-    description: 'بناء تطبيقات جوال احترافية متعددة المنصات من الصفر حتى النشر على متاجر التطبيقات',
+    description: 'بناء تطبيقات جوال احترافية متعددة المنصات بـ Flutter من الصفر حتى النشر على متاجر التطبيقات',
     category: 'تطوير الجوال', difficulty: 'مبتدئ', total_duration: '6 أشهر',
     steps: [
       { phase: 'المرحلة 1', title: 'أساسيات Flutter وDart', skills: ['Dart Language', 'Flutter Widgets', 'Layouts', 'Animations'], duration: '5 – 6 أسابيع' },
@@ -119,21 +126,23 @@ function Timeline({ steps }: { steps: RoadmapStep[] }) {
       {steps.map((step, i) => (
         <div key={i} className="flex gap-5">
           <div className="flex flex-col items-center w-8 shrink-0">
-            <div className="w-8 h-8 rounded-full border-2 border-slate-300 bg-white flex items-center justify-center shrink-0 z-10 relative">
-              <span className="text-xs font-bold text-slate-600 tabular-nums leading-none">{i + 1}</span>
+            <div className={`w-8 h-8 rounded-full ${PHASE_COLORS[i % PHASE_COLORS.length]} flex items-center justify-center shrink-0 z-10 relative`}>
+              <span className="text-[11px] font-bold text-white tabular-nums leading-none">{i + 1}</span>
             </div>
             {i < steps.length - 1 && <div className="w-px bg-slate-200 flex-1 mt-1" />}
           </div>
           <div className={`flex-1 ${i < steps.length - 1 ? 'pb-5' : ''}`}>
             <div className="bg-white border border-slate-200 rounded-md p-4 hover:border-slate-300 transition-colors">
               <div className="flex items-start justify-between gap-2 mb-2">
-                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{step.phase}</span>
-                <span className="text-xs text-slate-500 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-sm shrink-0 whitespace-nowrap">{step.duration}</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{step.phase}</span>
+                <span className="text-xs text-slate-500 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-sm shrink-0 whitespace-nowrap tabular-nums">{step.duration}</span>
               </div>
               <p className="text-sm font-bold text-slate-900 mb-2.5">{step.title}</p>
               <div className="flex flex-wrap gap-1.5">
                 {step.skills.map((skill) => (
-                  <span key={skill} className="text-xs bg-white border border-slate-200 text-slate-600 px-2 py-0.5 rounded-sm">{skill}</span>
+                  <span key={skill} className="text-xs bg-slate-50 border border-slate-200 text-slate-600 px-2 py-0.5 rounded-sm">
+                    {skill}
+                  </span>
                 ))}
               </div>
             </div>
@@ -151,88 +160,116 @@ export default async function RoadmapsPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900 mb-2">خارطة الطريق المهنية</h1>
-        <p className="text-slate-500 text-sm">
-          {roadmaps.length} مسار مهني مفصّل – كل مرحلة مرتبطة تلقائياً بكوبونات الدورات النشطة
-          {!fromDB && <span className="text-slate-400"> · بيانات تجريبية</span>}
+
+      {/* Page header */}
+      <div className="mb-10">
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <span className="text-xs font-bold bg-amber-100 text-amber-800 px-2.5 py-1 rounded-sm">مسار مهني</span>
+          {!fromDB && (
+            <span className="text-xs text-slate-400 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-sm">
+              بيانات تجريبية
+            </span>
+          )}
+        </div>
+        <h1 className="text-2xl font-bold text-slate-900 mb-3">مسارات التعلم التقني</h1>
+        <p className="text-slate-500 text-sm leading-relaxed max-w-2xl">
+          {roadmaps.length} مسار مهني مفصّل يأخذك من الصفر إلى سوق العمل — كل مرحلة مرتبطة تلقائياً
+          بكوبونات دورات <span className="font-semibold text-slate-700">Udemy</span> النشطة.
         </p>
       </div>
 
+      {/* Roadmap cards */}
       <div className="space-y-8">
         {roadmaps.map((roadmap) => {
-          const difficultyClass =
-            DIFFICULTY_COLOR[roadmap.difficulty ?? ''] ?? 'bg-slate-50 text-slate-600 border-slate-200'
+          const diffStyle = DIFFICULTY_STYLE[roadmap.difficulty ?? '']
 
           return (
-            <div key={roadmap.id} className="bg-white border border-slate-200 rounded-md overflow-hidden">
+            <div key={roadmap.id} className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
+
               {/* Card header */}
-              <div className="px-6 py-5 border-b border-slate-200">
+              <div className="px-6 py-5 border-b border-slate-100">
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                   <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <div className="flex flex-wrap items-center gap-2 mb-2.5">
                       {roadmap.category && (
-                        <span className="text-xs font-medium text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-sm">
+                        <span className="text-xs font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-sm">
                           {roadmap.category}
                         </span>
                       )}
-                      {roadmap.difficulty && (
-                        <span className={'text-xs font-semibold px-2.5 py-0.5 rounded-sm border ' + difficultyClass}>
+                      {roadmap.difficulty && diffStyle && (
+                        <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-sm border ${diffStyle.badge}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${diffStyle.dot} shrink-0`} />
                           {roadmap.difficulty}
                         </span>
                       )}
                     </div>
                     {fromDB ? (
                       <Link href={'/roadmaps/' + roadmap.id} className="hover:underline underline-offset-2">
-                        <h2 className="text-base font-bold text-slate-900 mb-1">{roadmap.title}</h2>
+                        <h2 className="text-lg font-bold text-slate-900 mb-1.5 leading-snug">{roadmap.title}</h2>
                       </Link>
                     ) : (
-                      <h2 className="text-base font-bold text-slate-900 mb-1">{roadmap.title}</h2>
+                      <h2 className="text-lg font-bold text-slate-900 mb-1.5 leading-snug">{roadmap.title}</h2>
                     )}
                     <p className="text-sm text-slate-500 leading-relaxed">{roadmap.description}</p>
                   </div>
                   {roadmap.total_duration && (
-                    <div className="border border-slate-200 rounded-md px-5 py-3.5 text-center shrink-0 bg-white">
-                      <p className="text-2xl font-bold text-slate-900 leading-none">{roadmap.total_duration}</p>
+                    <div className="border border-slate-200 rounded-md px-5 py-3.5 text-center shrink-0 bg-slate-50">
+                      <p className="text-2xl font-bold text-slate-900 leading-none tabular-nums">{roadmap.total_duration}</p>
                       <p className="text-[10px] font-semibold text-slate-400 mt-1.5 uppercase tracking-widest">المدة الإجمالية</p>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Timeline body */}
+              {/* Timeline */}
               <div className="px-6 py-6">
                 <Timeline steps={roadmap.steps ?? []} />
               </div>
 
               {/* Footer */}
-              <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex flex-wrap items-center gap-2">
-                <span className="text-xs font-medium text-slate-400">دورات مرتبطة:</span>
-                {(roadmap.associated_keywords ?? []).map((kw) => (
-                  <span key={kw} className="text-xs text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded-sm">
-                    {kw}
-                  </span>
-                ))}
-                {fromDB ? (
-                  <Link
-                    href={'/roadmaps/' + roadmap.id}
-                    className="text-xs font-medium text-blue-600 hover:text-blue-800 underline underline-offset-2 me-auto transition-colors"
-                  >
-                    ← تفاصيل ومنح مرتبطة
-                  </Link>
-                ) : (
-                  <a
-                    href="/coupons"
-                    className="text-xs font-medium text-blue-600 hover:text-blue-800 underline underline-offset-2 me-auto transition-colors"
-                  >
-                    ← تصفح الكوبونات لهذه التقنيات
-                  </a>
-                )}
+              <div className="px-6 py-4 bg-slate-50 border-t border-slate-100">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-semibold text-slate-500">دورات مقترحة:</span>
+                  {(roadmap.associated_keywords ?? []).map((kw) => (
+                    <Link
+                      key={kw}
+                      href="/coupons"
+                      className="text-xs text-slate-500 bg-white border border-slate-200 hover:border-blue-200 hover:text-blue-600 px-2 py-0.5 rounded-sm transition-colors"
+                    >
+                      {kw}
+                    </Link>
+                  ))}
+                  <span className="me-auto" />
+                  {fromDB ? (
+                    <Link
+                      href={'/roadmaps/' + roadmap.id}
+                      className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                    >
+                      عرض التفاصيل الكاملة ←
+                    </Link>
+                  ) : (
+                    <Link
+                      href="/coupons"
+                      className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                    >
+                      تصفح كوبونات هذا المسار ←
+                    </Link>
+                  )}
+                </div>
               </div>
+
             </div>
           )
         })}
       </div>
+
+      {/* Footer note */}
+      <div className="mt-10 pt-6 border-t border-slate-200">
+        <p className="text-xs text-slate-400 text-center">
+          المسارات محدَّثة يدوياً · الكوبونات المرتبطة تُحدَّث تلقائياً مرة يومياً
+        </p>
+      </div>
+
     </div>
   )
 }
